@@ -2,27 +2,23 @@ ENTRY(_start)
 
 SECTIONS
 {
-    /* QEMU Virt RAM starts at 0x40000000 */
+    /* Start EL3 Monitor at base of RAM */
     . = 0x40000000;
 
-    /* Code - Ensure the entry point is first */
     .text : {
         *(.text.boot)
         *(.text .text.*)
     }
 
-    /* Read-only constants */
     .rodata : {
         *(.rodata .rodata.*)
     }
 
-    /* Initialized data */
     .data : {
         *(.data .data.*)
     }
 
-    /* Uninitialized data - Align to 8-byte for easy zeroing in assembly */
-    . = ALIGN(8);
+    /* Uninitialized data */
     .bss : {
         __bss_start = .;
         *(.bss .bss.*)
@@ -30,7 +26,9 @@ SECTIONS
         __bss_end = .;
     }
 
-    /* Define a symbol for the end of the binary for stack placement logic */
+    /* EL3 STACK: Uses '.' to reserve 16KB right after BSS */
     . = ALIGN(16);
-    __end = .;
+    . += 0x4000;
+    _el3_stack_top = .;
+
 }

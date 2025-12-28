@@ -4,8 +4,7 @@ _start:
     msr daifset, #0xf          // mask interrupts
 
     // Setup stack pointer
-    ldr x0, =__end
-    add x0, x0, #0x4000        // 16KB stack space
+    ldr x0, =_el3_stack_top
     bic x0, x0, #0xf           // FORCE 16-byte alignment (Mandatory for MMU)
     mov sp, x0
 
@@ -21,6 +20,5 @@ halt_secondary:
 
 primary_core:
     bl main
-1:  wfe
+1:  wfi
     b 1b
-
