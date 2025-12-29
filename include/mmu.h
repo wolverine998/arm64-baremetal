@@ -29,19 +29,18 @@
 #define PTE_UXN (1ULL << 54)
 
 // AP Permissions
-#define AP_EL0_NO_ELX_RW (0ULL << 6)
-#define AP_EL0_RW_ELX_RW (1ULL << 6)
-#define AP_EL0_NO_ELX_RO (2ULL << 6)
-#define AP_EL0_RO_ELX_RO (3ULL << 6)
+#define AP_EL0_NO_ELX_RW (0x0ULL << 6)
+#define AP_EL0_RW_ELX_RW (0x1ULL << 6)
+#define AP_EL0_NO_ELX_RO (0x2ULL << 6)
+#define AP_EL0_RO_ELX_RO (0x3ULL << 6)
 
 // --- MAIR Indices ---
 #define ATTR_I_DEVICE 0
 #define ATTR_I_NORMAL 1
 
 // --- Memory Prot Settings ---
-#define PROT_NORMAL_MEM                                                        \
-  (PTE_TYPE_BLOCK | PTE_AF | PTE_SH_INNER | PTE_ATTR_INDX(ATTR_I_NORMAL))
-#define PROT_DEVICE (PTE_TYPE_BLOCK | PTE_AF | PTE_ATTR_INDX(ATTR_I_DEVICE))
+#define PROT_NORMAL_MEM (PTE_AF | PTE_SH_INNER | PTE_ATTR_INDX(ATTR_I_NORMAL))
+#define PROT_DEVICE (PTE_AF | PTE_ATTR_INDX(ATTR_I_DEVICE))
 
 // TCR_EL1 TG0 GRANULE SIZE
 #define TCR_TG0_4KB (0ULL << 14)
@@ -95,12 +94,10 @@
 
 // --- Address Map ---
 #define RAM_BASE 0x40000000
-#define UART_BASE 0x09000000
-#define UART_VA 0x00600000
-#define BT_BASE 0x02F00000
 
 // mmu helper functions
 void setup_mmu();
+void kernel_setup_mmu();
 void map_page_4k(uint64_t va, uint64_t pa, uint64_t flags);
 
 #endif

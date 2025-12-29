@@ -1,4 +1,5 @@
 #include "../include/mmu.h"
+#include "../include/registers.h"
 #include "../include/uart.h"
 #include <stdint.h>
 
@@ -13,12 +14,6 @@ void setup_mmu(void) {
 
   // 2. TCR: 32-bit VA space, 4KB granules
   uint64_t tcr = (32ULL << 0) | (3ULL << 12) | (1ULL << 10) | (1ULL << 8);
-  uint64_t tcr_el1 =
-      (TCR_EL1_T0SZ0_32 | TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC |
-       TCR_ORGN0_NORMAL_MEMORY_OWBRA_WAC | TCR_SH0_INNER_SHAREABLE |
-       TCR_TG0_4KB | TCR_EL1_T1SZ_32 | TCR_IRGN1_NORMAL_MEMORY_IWBRA_WAC |
-       TCR_ORGN1_NORMAL_MEMORY_OWBRA_WAC | TCR_SH1_INNER_SHAREABLE |
-       TCR_TG1_4KB);
   write_sysreg(TCR_EL3, tcr);
 
   // 3. Clear Tables
@@ -35,22 +30,20 @@ void setup_mmu(void) {
   // 5. Map RAM (Identity map 256MB)
   for (int i = 0; i < 128; i++) {
     uint64_t addr = RAM_BASE + (i * 0x200000);
-    l2_ram[i] = addr | PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_S;
+    l2_ram[i] =
+        addr | PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_S | PTE_TYPE_BLOCK;
   }
 
   // 6. Map Device I/O (UART and Bluetooth)
-  l2_low[UART_BASE >> 21] =
-      UART_BASE | PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_NS;
-  l2_low[BT_BASE >> 21] =
-      BT_BASE | PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_NS;
-#define AP_EL0_NO_ACCESS (0ULL << 6)
+  l2_low[(UART_VA >> 21) & 0x1FF] = UART_BASE | PROT_DEVICE | AP_EL0_NO_ELX_RW |
+                                    PTE_UXN | PTE_S | PTE_TYPE_BLOCK;
 
   // 7. Commit and Enable
   write_sysreg(TTBR0_EL3, (uintptr_t)l1_table);
   asm volatile("tlbi alle3; dsb sy; isb");
 
   uint64_t sctlr = read_sysreg(SCTLR_EL3);
-  sctlr |= (1 << 0) | (1 << 2) | (1 << 12); // M, C, I bits
+  sctlr |= SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_I | SCTLR_SA;
   write_sysreg(SCTLR_EL3, sctlr);
   asm volatile("isb");
 }

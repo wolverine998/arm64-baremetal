@@ -2,33 +2,57 @@ ENTRY(_start)
 
 SECTIONS
 {
-    /* Start EL3 Monitor at base of RAM */
     . = 0x40000000;
 
-    .text : {
-        *(.text.boot)
-        *(.text .text.*)
+    /* 1. EL3 MONITOR CODE */
+    /* Use the standard '.text' name so the linker doesn't create an orphan */
+    .pbl : {
+        *el3_*(.text .text.*)
+        *el3_*(.rodata .rodata.*)
+        *el3_*(.bss .bss.*)
+        *el3_*(.data .data.*)
     }
 
-    .rodata : {
-        *(.rodata .rodata.*)
-    }
-
-    .data : {
-        *(.data .data.*)
-    }
-
-    /* Uninitialized data */
-    .bss : {
-        __bss_start = .;
-        *(.bss .bss.*)
-        *(COMMON)
-        __bss_end = .;
-    }
-
-    /* EL3 STACK: Uses '.' to reserve 16KB right after BSS */
-    . = ALIGN(16);
+    /* EL3 Stack */
+    . = ALIGN(4096);
     . += 0x4000;
     _el3_stack_top = .;
 
+    /* 2. KERNEL BOUNDARY */
+    . = ALIGN(4096);
+    _kernel_start = .;
+
+    /* 3. KERNEL CODE */
+    /* We name this .kernel_text to keep it distinct from the Monitor .text */
+    .kernel_text : {
+        *kernel_*(.text.kernel .text .text.*)
+        *kernel_*(.rodata .rodata.*)
+        *kernel_*(.bss .bss.*)
+        *kernel_*(.data .data.*)
+    }
+
+    . = ALIGN(4096);
+    _kernel_end = .;
+
+    /* Kernel Stack */
+    . = ALIGN(16);
+    . += 0x8000;
+    _kernel_stack = .;
+
+    . = ALIGN(4096);
+    _app_start = .;
+
+    .app_text : {
+        *app_*(.text .text.*)
+        *app_*(.rodata .rodata.*)
+        *app_*(.bss .bss.*)
+        *app_*(.data .data.*)
+  }
+
+  . = ALIGN(16);
+  . += 0x8000;
+  _app_stack = .;
+
+  . = ALIGN(4096);
+  _app_end = .;
 }
