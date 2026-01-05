@@ -1,6 +1,7 @@
-#include "../include/mmu.h"
-#include "../include/registers.h"
-#include "../include/uart.h"
+#include "../../include/gic-v3.h"
+#include "../../include/mmu.h"
+#include "../../include/registers.h"
+#include "../../include/uart.h"
 #include <stdint.h>
 
 // A pool of pages for tables.
@@ -12,6 +13,8 @@ __attribute__((aligned(4096))) uint64_t el1_l1[512];
 
 extern char _kernel_start[], _kernel_end[];
 extern char _app_start[], _app_end[];
+
+volatile uint64_t mmu_lock = 1;
 
 static uint64_t *allocate_table() {
   if (pool_ptr >= 128)
@@ -62,26 +65,55 @@ void kernel_setup_mmu() {
              PROT_NORMAL_MEM | AP_EL0_RW_ELX_RW);
 
   // 3. Map UART
-  map_page_4k(UART_VA, UART_BASE,
+  map_page_4k(UART_BASE, UART_BASE,
               PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_RW_ELX_RW);
-  write_sysreg(TTBR0_EL1, el1_l1);
+
+  // 4. Map GIC v3
+  map_page_4k(GICD_BASE, GICD_BASE,
+              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
+  map_page_4k(GICR_BASE, GICR_BASE,
+              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
 
   // Ensure TCR matches your 4KB granule and 32-bit (4GB) address space
-  uint64_t tcr = (32ULL << 0) |  // T0SZ: 32 bits (4GB)
-                 (32ULL << 16) | // T1SZ: 32 bits (4GB)
+  uint64_t tcr = TCR_EL1_T0SZ0_32 | // T0SZ: 32 bits (4GB)
+                 TCR_EL1_T1SZ_32 |  // T1SZ: 32 bits (4GB)
                  TCR_TG0_4KB | TCR_SH0_INNER_SHAREABLE |
                  TCR_ORGN0_NORMAL_MEMORY_OWBRA_WAC |
                  TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC;
 
   write_sysreg(TCR_EL1, tcr);
+  write_sysreg(TTBR0_EL1, el1_l1);
 
   asm volatile("dsb sy; isb");
 
   // Enable MMU
   uint64_t sctlr = read_sysreg(SCTLR_EL1);
-  sctlr |= (SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_I | SCTLR_SA);
-  // Removed SCTLR_A (Alignment check) temporarily to see if it's an alignment
-  // issue
+  sctlr |= (SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_I | SCTLR_SA | SCTLR_SA0);
+  write_sysreg(SCTLR_EL1, sctlr);
+
+  asm volatile("isb");
+
+  mmu_lock = 0;
+}
+
+void seccore_setup_mmu() {
+  while (mmu_lock)
+    ;
+  // Ensure TCR matches your 4KB granule and 32-bit (4GB) address space
+  uint64_t tcr = TCR_EL1_T0SZ0_32 | // T0SZ: 32 bits (4GB)
+                 TCR_EL1_T1SZ_32 |  // T1SZ: 32 bits (4GB)
+                 TCR_TG0_4KB | TCR_SH0_INNER_SHAREABLE |
+                 TCR_ORGN0_NORMAL_MEMORY_OWBRA_WAC |
+                 TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC;
+
+  write_sysreg(TCR_EL1, tcr);
+  write_sysreg(TTBR0_EL1, el1_l1);
+
+  asm volatile("dsb sy; isb");
+
+  // Enable MMU
+  uint64_t sctlr = read_sysreg(SCTLR_EL1);
+  sctlr |= (SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_I | SCTLR_SA | SCTLR_SA0);
   write_sysreg(SCTLR_EL1, sctlr);
 
   asm volatile("isb");

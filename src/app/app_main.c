@@ -1,8 +1,12 @@
-#include "../include/uart.h"
+#include "../../include/syscall.h"
+#include "../../include/uart.h"
+#include <stdint.h>
 
 void app_entry() {
-  uart_puts("App initialized.\n");
+  svc_print("Hello from EL0\n");
+
   // do nothing, just loop forever
-  while (1)
-    ;
+  while (1) {
+    asm volatile("wfi");
+  }
 }

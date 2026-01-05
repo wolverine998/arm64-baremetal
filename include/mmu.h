@@ -3,17 +3,6 @@
 
 #include <stdint.h>
 
-// --- System register helpers ---
-#define read_sysreg(reg)                                                       \
-  ({                                                                           \
-    uint64_t val;                                                              \
-    asm volatile("mrs %0, " #reg : "=r"(val));                                 \
-    val;                                                                       \
-  })
-
-#define write_sysreg(reg, val)                                                 \
-  asm volatile("msr " #reg ", %0" ::"r"((uint64_t)(val)))
-
 // --- Descriptor Types ---
 #define PTE_TYPE_TABLE (3ULL << 0)
 #define PTE_TYPE_BLOCK (1ULL << 0)
@@ -97,7 +86,9 @@
 
 // mmu helper functions
 void setup_mmu();
+void setup_mmu_secondary();
 void kernel_setup_mmu();
 void map_page_4k(uint64_t va, uint64_t pa, uint64_t flags);
+void map_region(uint64_t start, uint64_t end, uint64_t flags);
 
 #endif
