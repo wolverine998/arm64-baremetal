@@ -78,7 +78,7 @@ b .
 .balign(0x80)
 b .
 .balign(0x80)
-b .
+b irq_handler
 .balign(0x80)
 b .
 .balign(0x80)
@@ -108,4 +108,10 @@ sync_handler_el0:
     SAVE_CONTEXT
     mov x0, sp
     bl kernel_sync_el0
+    RESTORE_CONTEXT
+
+irq_handler:
+    SAVE_CONTEXT
+    mov x0, sp
+    bl kernel_irq
     RESTORE_CONTEXT

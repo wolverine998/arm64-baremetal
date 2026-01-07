@@ -2,7 +2,7 @@
 .global _kernel_entry
 
 _kernel_entry:
-msr daifclr, #0xF
+msr daifset, #0xF
 
 // setup vbar_el1
 adrp x0, kernel_vector
@@ -10,7 +10,7 @@ add x0, x0, :lo12:kernel_vector
 msr vbar_el1, x0
 
 mrs x0, mpidr_el1
-and x0, x0, #3
+and x0, x0, #0xFF
 ldr x1, =_kernel_stack
 mov x2, #32768
 mul x2, x0, x2

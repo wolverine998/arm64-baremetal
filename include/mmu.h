@@ -83,6 +83,7 @@
 
 // --- Address Map ---
 #define RAM_BASE 0x40000000
+#define SEC_RAM_BASE 0x0E000000
 
 // mmu helper functions
 void setup_mmu();

@@ -5,7 +5,7 @@
 
 // --- Physical Base Addresses (QEMU Virt) ---
 #define GICD_BASE 0x08000000
-#define GICR_BASE 0x080a0000
+#define GICR_BASE 0x080A0000
 
 // --- GICD (Distributor) Offsets ---
 #define GICD_CTLR 0x0000
@@ -35,6 +35,16 @@
 
 // --- Raw Access Helpers (The "Fuck Structs" Way) ---
 #define GET_GICR_BASE(core_id) (GICR_BASE + (core_id * 0x20000))
+
+#define INTERRUPT_ID_MASK(imm) (imm & 0x3FF)
+
+static inline void write_gicd(uint64_t offset, uint32_t val) {
+  *(volatile uint32_t *)(GICD_BASE + offset) = val;
+}
+
+static inline uint32_t read_gicd(uint64_t offset) {
+  return *(volatile uint64_t *)(GICD_BASE + offset);
+}
 
 static inline void write_gicr(uintptr_t base, uint32_t offset, uint32_t val) {
   *(volatile uint32_t *)(base + offset) = val;
@@ -84,8 +94,14 @@ static inline void gic_write_eoir1(uint32_t iar) {
 }
 
 static inline void send_sgi0_to_core(uint8_t target_core, uint8_t sgi_id) {
-  uint64_t sgi_val = (target_core) | ((uint64_t)sgi_id << 24);
+  uint64_t sgi_val = (1 << target_core) | ((uint64_t)sgi_id << 24);
   asm volatile("msr ICC_SGI0R_EL1, %0" : : "r"(sgi_val));
+  asm volatile("dsb sy; isb");
+}
+
+static inline void send_sgi1_to_core(uint8_t target_core, uint8_t sgi_id) {
+  uint64_t sgi_val = (target_core) | ((uint64_t)sgi_id << 24);
+  asm volatile("msr ICC_SGI1R_EL1, %0" : : "r"(sgi_val));
   asm volatile("dsb sy; isb");
 }
 
@@ -105,5 +121,7 @@ static inline void cpu_enable_group1_interrupts() {
 
 void gic_init_global();
 void gic_init_core(int core_id);
+void gic_enable_redistributor(uintptr_t rd_base);
+void gic_disable_redistributor(uintptr_t rd_base);
 
 #endif

@@ -10,7 +10,7 @@ _start:
 
     // Identify core: only core 0 continues
     mrs x0, mpidr_el1
-    and x0, x0, #3
+    and x0, x0, #0xFF
     cmp x0, #0
     b.eq primary_core
 

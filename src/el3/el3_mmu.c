@@ -31,8 +31,8 @@ void setup_mmu(void) {
   l1_table[1] = ((uintptr_t)l2_ram | PTE_TYPE_TABLE);
 
   // 5. Map RAM (Identity map 256MB)
-  for (int i = 0; i < 128; i++) {
-    uint64_t addr = RAM_BASE + (i * 0x200000);
+  for (int i = 0; i < 4; i++) {
+    uint64_t addr = RAM_BASE + (i * 0x20000);
     l2_ram[i] =
         addr | PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_S | PTE_TYPE_BLOCK;
   }

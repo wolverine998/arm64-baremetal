@@ -6,7 +6,6 @@ void app_entry() {
   svc_print("Hello from EL0\n");
 
   // do nothing, just loop forever
-  while (1) {
-    asm volatile("wfi");
-  }
+  while (1)
+    ;
 }

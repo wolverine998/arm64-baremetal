@@ -14,8 +14,8 @@ SECTIONS
     }
 
     /* EL3 Stack */
-    . = ALIGN(4096);
-    . += 0x10000;
+    . = ALIGN(16);
+    . += 0x20000;
     _el3_stack_top = .;
 
     /* 2. KERNEL BOUNDARY */
@@ -36,7 +36,7 @@ SECTIONS
 
     /* Kernel Stack */
     . = ALIGN(16);
-    . += 0x20000;
+    . += 0x40000;
     _kernel_stack = .;
 
     . = ALIGN(4096);
@@ -50,7 +50,7 @@ SECTIONS
   }
 
   . = ALIGN(16);
-  . += 0x10000;
+  . += 0x20000;
   _app_stack = .;
 
   . = ALIGN(4096);

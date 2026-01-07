@@ -12,8 +12,9 @@ void kernel_sync(trap_frame_t *frame) {
   kernel_hex(frame->esr);
   kernel_puts("ELR: ");
   kernel_hex(frame->elr);
-  while (1)
-    ; // just loop
+  while (1) {
+    asm volatile("wfi");
+  }
 }
 
 void kernel_sync_el0(trap_frame_t *frame) {
@@ -23,11 +24,10 @@ void kernel_sync_el0(trap_frame_t *frame) {
   if (ec == 0x15) {
     if (frame->regs[8] == SVC_CONSOLE_PRINT) {
       kernel_puts((const char *)frame->regs[0]);
-
-      kernel_puts("Returning to EL0. ELR: ");
-      kernel_hex(frame->elr);
     } else {
       kernel_puts("Unknown system call\n");
     }
   }
 }
+
+void kernel_irq(trap_frame_t *frame) {}

@@ -44,6 +44,11 @@
 #define SERROR (1 << 8)
 #define DEBUG (1 << 9)
 
+// ESR
+#define ESR_EC_MASK(esr) ((esr >> 26) & 0x3F)
+#define EC_SVC (0x15)
+#define EC_SMC (0x17)
+
 // Helper methods
 static inline void mask_interrupts(int8_t mask) {
   if (mask == 1)
