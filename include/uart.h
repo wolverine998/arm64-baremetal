@@ -12,6 +12,7 @@ void kernel_putc(char c);
 void kernel_puts(const char *s);
 void kernel_puts_old(const char *s);
 void kernel_hex(uint64_t value);
+void kernel_printf(const char *fmt, ...);
 
 #define UART_VA 0x0600000
 #define UART_BASE 0x09000000

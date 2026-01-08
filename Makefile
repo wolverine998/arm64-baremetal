@@ -10,7 +10,8 @@ BUILD_DIR = build
 SRCS := $(shell find $(SRC_DIR) -name '*.c' -o -name '*.S')
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 
-CFLAGS = --target=aarch64-none-elf -I$(INC_DIR) -I$(SRC_DIR) -g
+CFLAGS = --target=aarch64-none-elf -mcpu=cortex-a55 \
+				 -I$(INC_DIR) -I$(SRC_DIR) -g
 
 all: $(TARGET)
 

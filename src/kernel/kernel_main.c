@@ -20,21 +20,13 @@ void c_entry() {
   mask_interrupts(0);
 
   // boot other cores that might be offline
+  smc_psci_cpu_on(2, (uint64_t)_kernel_entry);
+
   uint64_t spsr = SPSR_M_EL0;
 
   write_sysreg(spsr_el1, spsr);
   write_sysreg(sp_el0, (uint64_t)_app_stack);
   write_sysreg(elr_el1, (uint64_t)app_entry);
-
-  smc_psci_cpu_on(1, (uint64_t)_kernel_entry);
-  smc_psci_cpu_on(2, (uint64_t)_kernel_entry);
-
-  int count = 1000000;
-  while (count > 0) {
-    count--;
-  }
-
-  smc_psci_cpu_off(2);
 
   asm volatile("eret");
 
@@ -48,7 +40,8 @@ void sec_entry() {
 
   mask_interrupts(0);
 
-  kernel_puts("Core booted successfully\n");
+  uint32_t core_id = (read_sysreg(mpidr_el1) & 0xFF);
+  kernel_printf("Core %d booted successfully\n", core_id);
 
   while (1)
     ;

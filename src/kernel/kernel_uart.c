@@ -1,4 +1,5 @@
 #include "../../include/uart.h"
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 // ------------------------
@@ -49,5 +50,96 @@ void kernel_puts(const char *s) {
   // 3. Release Lock
   // __ATOMIC_RELEASE ensures all UART writes are finished before clearing the
   // lock
+  __atomic_store_n(&kernel_lock, 0, __ATOMIC_RELEASE);
+}
+
+void kernel_printf(const char *fmt, ...) {
+  // 1. Acquire Lock
+  // Prevents characters from different cores from interleaving
+  int expected = 0;
+  while (!__atomic_compare_exchange_n(&kernel_lock, &expected, 1, false,
+                                      __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) {
+    expected = 0;
+    asm volatile("yield");
+  }
+
+  __builtin_va_list args;
+  __builtin_va_start(args, fmt);
+
+  for (const char *p = fmt; *p != '\0'; p++) {
+    if (*p == '%') {
+      p++; // Move to specifier
+
+      switch (*p) {
+      case 's': {
+        char *s = __builtin_va_arg(args, char *);
+        if (!s)
+          s = "(null)";
+        while (*s)
+          kernel_putc(*s++);
+        break;
+      }
+
+      case 'x': {
+        uint64_t val = __builtin_va_arg(args, uint64_t);
+        kernel_putc('0');
+        kernel_putc('x');
+        if (val == 0) {
+          kernel_putc('0');
+        } else {
+          int started = 0;
+          for (int i = 60; i >= 0; i -= 4) {
+            uint8_t nibble = (val >> i) & 0xF;
+            if (nibble != 0 || started) {
+              kernel_putc((nibble < 10) ? ('0' + nibble)
+                                        : ('A' + (nibble - 10)));
+              started = 1;
+            }
+          }
+        }
+        break;
+      }
+
+      case 'd': {
+        int64_t val = __builtin_va_arg(args, int64_t);
+        if (val == 0) {
+          kernel_putc('0');
+        } else {
+          if (val < 0) {
+            kernel_putc('-');
+            val = -val;
+          }
+          char buf[20]; // Fits max 64-bit decimal
+          int i = 0;
+          while (val > 0) {
+            buf[i++] = (val % 10) + '0';
+            val /= 10;
+          }
+          while (i > 0)
+            kernel_putc(buf[--i]);
+        }
+        break;
+      }
+
+      case 'c': {
+        // Char is promoted to int in variadic arguments
+        char c = (char)__builtin_va_arg(args, int);
+        kernel_putc(c);
+        break;
+      }
+
+      default:
+        kernel_putc('%');
+        kernel_putc(*p);
+        break;
+      }
+    } else {
+      kernel_putc(*p);
+    }
+  }
+
+  __builtin_va_end(args);
+
+  // 2. Release Lock
   __atomic_store_n(&kernel_lock, 0, __ATOMIC_RELEASE);
 }

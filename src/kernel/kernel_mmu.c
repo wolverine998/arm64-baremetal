@@ -69,10 +69,10 @@ void kernel_setup_mmu() {
               PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_RW_ELX_RW);
 
   // 4. Map GIC v3
-  map_page_4k(GICD_BASE, GICD_BASE,
-              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
-  map_page_4k(GICR_BASE, GICR_BASE,
-              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
+  map_region(GICD_BASE, GICD_BASE + 0xFFFF,
+             PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
+  map_region(GICR_BASE, GICR_BASE + 0x80000,
+             PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
 
   // Ensure TCR matches your 4KB granule and 32-bit (4GB) address space
   uint64_t tcr = TCR_EL1_T0SZ0_32 | // T0SZ: 32 bits (4GB)
