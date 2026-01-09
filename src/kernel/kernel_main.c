@@ -19,8 +19,7 @@ void c_entry() {
 
   mask_interrupts(0);
 
-  // boot other cores that might be offline
-  smc_psci_cpu_on(2, (uint64_t)_kernel_entry);
+  int status = smc_psci_cpu_on(2, (uint64_t)_kernel_entry);
 
   uint64_t spsr = SPSR_M_EL0;
 
@@ -28,7 +27,7 @@ void c_entry() {
   write_sysreg(sp_el0, (uint64_t)_app_stack);
   write_sysreg(elr_el1, (uint64_t)app_entry);
 
-  asm volatile("eret");
+  asm volatile("isb; eret");
 
   while (1)
     ;

@@ -17,11 +17,12 @@ static inline uint64_t smc_psci_cpu_on(uint32_t target_core, uint64_t entry) {
   return x0;
 }
 
-static inline void smc_psci_cpu_off(uint32_t target_core) {
+static inline int smc_psci_cpu_off(uint32_t target_core) {
   register uint64_t x0 asm("x0") = PSCI_CPU_OFF;
   register uint64_t x1 asm("x1") = target_core;
 
-  asm volatile("smc #0" : : "r"(x0), "r"(x1));
+  asm volatile("smc #0" : "+r"(x0) : "r"(x1));
+  return x0;
 }
 
 #endif

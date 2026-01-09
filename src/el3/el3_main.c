@@ -17,6 +17,7 @@ void main() {
   uart_puts("Booted into EL3\n");
 
   mask_interrupts(0);
+  cpu_set_priority_mask(255);
 
   uint64_t scr = RW_AARCH64 | FIQ_ROUTE | NS;
   write_sysreg(scr_el3, scr);
@@ -35,14 +36,17 @@ void init_sec_core(int core_id) {
 
   cpus[core_id].state = ON;
 
-  mask_interrupts(0);
-
   uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
   write_sysreg(scr_el3, scr);
 
   uart_puts("Parking core\n");
 
   cpus[core_id].state = OFF;
+
+  uint32_t mask = SERROR | IRQ | DEBUG;
+  write_sysreg(daif, mask);
+
+  cpu_set_priority_mask(255);
 
   while (1) {
     asm volatile("wfi");

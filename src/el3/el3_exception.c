@@ -10,17 +10,24 @@
 extern void _kernel_entry();
 
 void el3_cpu_off(uint32_t target_core) {
+  // enable the ns bit first
+  uint64_t scr = read_sysreg(scr_el3);
+  scr &= ~(NS);
+  write_sysreg(scr_el3, scr);
+  instruction_barrier();
+
   uart_puts("Turning off core\n");
   // first, disable redistributor
-  gic_disable_redistributor(GET_GICR_BASE(target_core));
-  cpu_set_priority_mask(0);
 
   // disable mmu, caches, and stack check
   uint64_t sctlr = read_sysreg(sctlr_el1);
   sctlr &= ~(SCTLR_M | SCTLR_A | SCTLR_I | SCTLR_C | SCTLR_SA | SCTLR_SA0);
-  asm volatile("tlbi vmalle1; dsb sy");
+  flush_tlbi(0);
   write_sysreg(sctlr_el1, sctlr);
   write_sysreg(ttbr0_el1, 0);
+
+  uint32_t mask = SERROR | IRQ | DEBUG;
+  write_sysreg(daif, mask);
 
   cpus[target_core].state = OFF;
   cpus[target_core].entry_point = 0;

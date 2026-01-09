@@ -61,7 +61,7 @@ static inline void flush_tlbi(int8_t el3) {
   if (el3 == 1)
     asm volatile("tlbi alle3is; dsb ish");
   else
-    asm volatile("tbli alle1is; dsb ish");
+    asm volatile("tlbi alle1is; dsb ish");
 }
 
 static inline void data_barrier() { asm volatile("dsb sy"); }
