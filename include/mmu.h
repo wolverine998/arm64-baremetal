@@ -1,6 +1,7 @@
 #ifndef MMU_H
 #define MMU_H
 
+#include "registers.h"
 #include <stdint.h>
 
 // --- Descriptor Types ---
@@ -91,5 +92,25 @@ void setup_mmu_secondary();
 void kernel_setup_mmu();
 void map_page_4k(uint64_t va, uint64_t pa, uint64_t flags);
 void map_region(uint64_t start, uint64_t end, uint64_t flags);
+void seeos_init_mmu_global();
+void seeos_enable_mmu();
+
+static inline void enable_mmu_el1() {
+  uint64_t sctlr = read_sysreg(sctlr_el1);
+  sctlr |= SCTLR_M | SCTLR_A | SCTLR_I | SCTLR_C | SCTLR_SA | SCTLR_SA0;
+  write_sysreg(sctlr_el1, sctlr);
+  asm volatile("isb");
+}
+
+static inline void disable_mmu_el1() {
+  uint64_t sctlr = read_sysreg(sctlr_el1);
+  sctlr &= ~(SCTLR_M);
+  write_sysreg(sctlr_el1, sctlr);
+  write_sysreg(ttbr0_el1, 0);
+  asm volatile("isb");
+  asm volatile("tlbi vmalle1");
+  asm volatile("dsb nsh");
+  asm volatile("isb");
+}
 
 #endif

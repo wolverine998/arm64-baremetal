@@ -4,9 +4,9 @@
 #include "trap_frame.h"
 #include <stdint.h>
 
-#define PSCI_CPU_ON 1
-#define PSCI_CPU_OFF 2
-#define PSCI_CPU_SUSPEND 3
+#define PSCI_CPU_ON 0x200000A0
+#define PSCI_CPU_OFF 0x200000B0
+#define PSCI_CPU_SUSPEND 0x200000C0
 
 #define PSCI_SUCCESS 0
 #define PSCI_ERR_BADDRESS -1

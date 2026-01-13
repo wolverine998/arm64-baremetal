@@ -29,7 +29,6 @@ b.eq primary
 secondary:
 bl sec_entry
 wfi
-b secondary
 
 primary:
 bl c_entry

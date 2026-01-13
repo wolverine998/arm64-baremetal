@@ -65,7 +65,11 @@ static inline void flush_tlbi(int8_t el3) {
 }
 
 static inline void data_barrier() { asm volatile("dsb sy"); }
-
 static inline void instruction_barrier() { asm volatile("isb"); }
+
+static inline uint32_t get_core_id() {
+  uint32_t core_id = (read_sysreg(mpidr_el1) & 0xFF);
+  return core_id;
+}
 
 #endif

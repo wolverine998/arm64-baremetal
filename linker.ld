@@ -18,6 +18,21 @@ SECTIONS
     . += 0x20000;
     _el3_stack_top = .;
 
+    /* Secure execution environment code */
+    . = ALIGN(4096);
+    _seeos_begin = .;
+    .see : {
+      *see_*(.text .text.*)
+      *see_*(.rodata .rodata.*)
+      *see_*(.bss .bss.*)
+      *see_*(.data .data.*)
+    }
+    _seeos_end = .;
+
+    . = ALIGN(16);
+    . += 0x20000;
+    _seeos_stack_top = .;
+
     /* 2. KERNEL BOUNDARY */
     . = ALIGN(4096);
     _kernel_start = .;

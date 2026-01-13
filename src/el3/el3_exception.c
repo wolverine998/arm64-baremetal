@@ -1,30 +1,30 @@
 #include "../../include/cpu_state.h"
 #include "../../include/gic-v3.h"
 #include "../../include/irq.h"
-#include "../../include/psci.h"
+#include "../../include/mmu.h"
 #include "../../include/registers.h"
+#include "../../include/smc.h"
 #include "../../include/trap_frame.h"
 #include "../../include/uart.h"
 #include <stdint.h>
 
 extern void _kernel_entry();
+extern void _seeos_entry();
+
+extern void el3_smc_handler(trap_frame_t *frame, uint64_t function_id);
 
 void el3_cpu_off(uint32_t target_core) {
-  // enable the ns bit first
-  uint64_t scr = read_sysreg(scr_el3);
-  scr &= ~(NS);
-  write_sysreg(scr_el3, scr);
-  instruction_barrier();
-
   uart_puts("Turning off core\n");
   // first, disable redistributor
 
   // disable mmu, caches, and stack check
   uint64_t sctlr = read_sysreg(sctlr_el1);
   sctlr &= ~(SCTLR_M | SCTLR_A | SCTLR_I | SCTLR_C | SCTLR_SA | SCTLR_SA0);
-  flush_tlbi(0);
   write_sysreg(sctlr_el1, sctlr);
   write_sysreg(ttbr0_el1, 0);
+  asm volatile("isb");
+  asm volatile("tlbi vmalle1; dsb nsh");
+  asm volatile("isb");
 
   uint32_t mask = SERROR | IRQ | DEBUG;
   write_sysreg(daif, mask);
@@ -35,6 +35,14 @@ void el3_cpu_off(uint32_t target_core) {
   while (1) {
     asm volatile("wfi");
   }
+}
+
+void el3_seeos_jump(trap_frame_t *frame) {
+  uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
+  write_sysreg(scr_el3, scr);
+  write_sysreg(spsr_el3, SPSR_M_EL1H);
+  write_sysreg(elr_el3, (uint64_t)_seeos_entry);
+  asm volatile("isb; eret");
 }
 
 void el3_sync(trap_frame_t *frame) {
@@ -48,20 +56,43 @@ void el3_sync_lower(trap_frame_t *frame) {
   uint64_t esr = frame->esr;
   uint32_t ec = ESR_EC_MASK(esr);
   if (ec == EC_SMC) {
-    switch (frame->regs[0]) {
-    case PSCI_CPU_ON: {
-      uint32_t target_core = (uint32_t)frame->regs[1];
-      uint64_t target_addr = frame->regs[2];
-      frame->regs[0] = psci_fn_cpu_on(target_core, target_addr);
+    uint32_t core_id = get_core_id();
+    uint32_t function_id = (uint32_t)frame->regs[0];
+    uint16_t world_id = (function_id >> 16);
+    switch (world_id) {
+    case FIRMWARE_WORLD_ID: {
+      el3_smc_handler(frame, function_id);
       break;
     }
-    case PSCI_CPU_OFF: {
-      uint32_t target_core = (uint32_t)frame->regs[1];
-      frame->regs[0] = psci_fn_cpu_off(target_core);
+    case SEEOS_WORLD_ID: {
+      cpus[core_id].ns_context.elr = frame->elr;
+      save_context(&cpus[core_id].ns_context);
+      for (int i = 19; i <= 30; i++) {
+        cpus[core_id].ns_context.regs[i] = frame->regs[i];
+      }
+
+      if (cpus[core_id].s_context.initialized) {
+        restore_context(&cpus[core_id].s_context);
+        for (int i = 19; i <= 30; i++) {
+          frame->regs[i] = cpus[core_id].s_context.regs[i];
+        }
+        uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
+        write_sysreg(scr_el3, scr);
+        write_sysreg(spsr_el3, SPSR_M_EL1H);
+        write_sysreg(elr_el3, cpus[core_id].s_context.elr);
+      } else {
+        disable_mmu_el1();
+        write_sysreg(ttbr0_el1, 0);
+
+        uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
+        write_sysreg(scr_el3, scr);
+        frame->spsr = SPSR_M_EL1H;
+        frame->elr = (uint64_t)_seeos_entry;
+      }
       break;
     }
     default: {
-      frame->regs[0] = PSCI_ERR_NOT_SUPPORTED;
+      uart_puts("Wrong World ID\n");
       break;
     }
     }
@@ -79,15 +110,13 @@ void el3_fiq(trap_frame_t *frame) {
   if (interrupt_id == SGI_CORE_WAKE) {
 
     if (cpus[core_id].entry_point != 0) {
-      // prepare drop
+      restore_context(&cpus[core_id].ns_context);
       uint64_t scr = RW_AARCH64 | FIQ_ROUTE | NS;
-      uint64_t spsr = SPSR_M_EL1H;
-
       write_sysreg(scr_el3, scr);
-      frame->spsr = spsr;
+
+      frame->spsr = SPSR_M_EL1H;
       frame->elr = cpus[core_id].entry_point;
     }
-
     gic_write_eoir0(iar);
   } else if (interrupt_id == SGI_CORE_SLEEP) {
     // just jump to sleep function

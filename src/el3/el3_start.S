@@ -25,8 +25,6 @@ secondary_core:
 
     bl init_sec_core
 
-    // clear daif
-    msr daifclr, #0xF
     isb
 
 halt_secondary:

@@ -23,7 +23,7 @@ int psci_fn_cpu_on(uint32_t target_core, uint64_t entry_point) {
 
   cpus[target_core].entry_point = entry_point;
   cpus[target_core].state = BOOTING;
-  cpus[target_core].context = 0;
+  cpus[target_core].context_id = 0;
   asm volatile("dsb sy");
 
   // wake the core
