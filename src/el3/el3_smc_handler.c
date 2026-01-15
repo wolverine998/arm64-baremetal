@@ -1,7 +1,8 @@
 #include "../../include/cpu_state.h"
 #include "../../include/registers.h"
 #include "../../include/smc.h"
-#include "../../include/uart.h"
+
+#define VERSION 101
 
 void el3_smc_handler(trap_frame_t *frame, uint64_t fun_id) {
   switch (fun_id) {
@@ -30,7 +31,10 @@ void el3_smc_handler(trap_frame_t *frame, uint64_t fun_id) {
     frame->elr = cpus[core_id].ns_context.elr;
     uint64_t scr = RW_AARCH64 | FIQ_ROUTE | NS;
     write_sysreg(scr_el3, scr);
-    uart_puts("Swapped back to kernel\n");
+    break;
+  }
+  case SMC_VERSION: {
+    frame->regs[1] = VERSION;
     break;
   }
   default: {

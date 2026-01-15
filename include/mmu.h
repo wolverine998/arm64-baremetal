@@ -61,6 +61,7 @@
 
 // T1SZ TCR_EL1
 #define TCR_EL1_T1SZ_32 (32 << 16)
+#define TCR_EL1_T1SZ_25 (25 << 16)
 
 // T0SZ TCR_EL1
 #define TCR_EL1_T0SZ0_32 (32 << 0)
@@ -83,15 +84,20 @@
 #define TCR_SH0_INNER_SHAREABLE (3ULL << 12)
 
 // --- Address Map ---
-#define RAM_BASE 0x40000000
-#define SEC_RAM_BASE 0x0E000000
+#define RAM_BASE 0x40080000ULL
+#define SEC_RAM_BASE 0x0E000000ULL
+#define KERNEL_VIRT_BASE 0xFFFFFFFF00000000ULL
+
+#define VA_TO_PA(ptr) ((ptr) - KERNEL_VIRT_BASE)
 
 // mmu helper functions
 void setup_mmu();
 void setup_mmu_secondary();
 void kernel_setup_mmu();
-void map_page_4k(uint64_t va, uint64_t pa, uint64_t flags);
-void map_region(uint64_t start, uint64_t end, uint64_t flags);
+void map_page_4k(uint64_t *root, uint64_t va, uint64_t pa, uint64_t flags);
+void map_region(uint64_t *root, uint64_t va_start, uint64_t pa_start,
+                uint64_t size, uint64_t flags);
+void unmap_region(uint64_t *root, uint64_t va, uint64_t size);
 void seeos_init_mmu_global();
 void seeos_enable_mmu();
 

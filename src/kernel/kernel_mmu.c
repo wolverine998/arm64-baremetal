@@ -9,9 +9,10 @@
 __attribute__((aligned(4096))) static uint64_t page_pool[128][512];
 static int pool_ptr = 0;
 
-__attribute__((aligned(4096))) uint64_t el1_l1[512];
+__attribute__((aligned(4096))) uint64_t kernel_l1[512];
+__attribute__((aligned(4096))) uint64_t user_l1[512];
 
-extern char _kernel_start[], _kernel_end[];
+extern char _kernel_start[], _kernel_end[], _kernel_stack[];
 extern char _app_start[], _app_end[];
 
 volatile uint64_t mmu_lock = 1;
@@ -25,53 +26,78 @@ static uint64_t *allocate_table() {
   return table;
 }
 
-void map_page_4k(uint64_t va, uint64_t pa, uint64_t flags) {
-  uint64_t l1_idx = (va >> 30) & 0x1FF;
-  if (!(el1_l1[l1_idx] & 1)) {
-    el1_l1[l1_idx] = (uint64_t)allocate_table() | PTE_TYPE_TABLE;
+void map_page_4k(uint64_t *root, uint64_t va, uint64_t pa, uint64_t flags) {
+  uint64_t va_addr = va & 0xFFFFFFFFULL;
+  uint64_t l1_idx = (va_addr >> 30) & 0x1FF;
+  if (!(root[l1_idx] & 1)) {
+    root[l1_idx] = (uint64_t)allocate_table() | PTE_TYPE_TABLE;
   }
-  uint64_t *l2 = (uint64_t *)(el1_l1[l1_idx] & ~0xFFFULL);
+  uint64_t *l2 = (uint64_t *)(root[l1_idx] & ~0xFFFULL);
 
-  uint64_t l2_idx = (va >> 21) & 0x1FF;
+  uint64_t l2_idx = (va_addr >> 21) & 0x1FF;
   if (!(l2[l2_idx] & 1)) {
     l2[l2_idx] = (uint64_t)allocate_table() | PTE_TYPE_TABLE;
   }
   uint64_t *l3 = (uint64_t *)(l2[l2_idx] & ~0xFFFULL);
 
-  uint64_t l3_idx = (va >> 12) & 0x1FF;
+  uint64_t l3_idx = (va_addr >> 12) & 0x1FF;
 
   // Force Type 3 (Page) and ensure Access Flag is set
   l3[l3_idx] = (pa & ~0xFFFULL) | flags | PTE_TYPE_PAGE;
 }
 
-void map_region(uint64_t start, uint64_t end, uint64_t flags) {
-  start &= ~0xFFFULL;
-  for (uint64_t addr = start; addr < end; addr += 4096) {
-    map_page_4k(addr, addr, flags); // Identity map: VA == PA
+void map_region(uint64_t *root, uint64_t va_start, uint64_t pa_start,
+                uint64_t size, uint64_t flags) {
+  uint64_t va = va_start & ~0xFFFULL;
+  uint64_t pa = pa_start & ~0xFFFULL;
+  for (int i = 0; i < size; i += 4096) {
+    map_page_4k(root, va + i, pa + i, flags);
+  }
+}
+
+void unmap_region(uint64_t *root, uint64_t va_start, uint64_t size) {
+  for (uint64_t i = 0; i < size; i += 4096) {
+    uint64_t va = va_start + i;
+    uint64_t va_addr = va & 0xFFFFFFFFULL;
+
+    uint64_t l1_idx = (va_addr >> 30) & 0x1FF;
+    if (!(root[l1_idx] & 1))
+      continue;
+
+    uint64_t *l2 = (uint64_t *)(root[l1_idx] & ~0xFFFULL);
+    uint64_t l2_idx = (va_addr >> 21) & 0x1FF;
+    if (!(l2[l2_idx] & 1))
+      continue;
+
+    uint64_t *l3 = (uint64_t *)(l2[l2_idx] & ~0xFFFULL);
+    uint64_t l3_idx = (va_addr >> 12) & 0x1FF;
+
+    l3[l3_idx] = 0; // Surgical strike: only unmap this page
   }
 }
 
 void kernel_setup_mmu() {
   pool_ptr = 0;
   for (int i = 0; i < 512; i++)
-    el1_l1[i] = 0;
+    kernel_l1[i] = 0;
 
-  // 1. Map Kernel
-  map_region(RAM_BASE, (uint64_t)_kernel_end,
-             PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW);
+  uint64_t k_start = (uint64_t)_kernel_start;
+  uint64_t k_stack = (uint64_t)_kernel_stack;
+  uint64_t k_size = k_stack - k_start;
 
-  // 2. Map App
-  map_region((uint64_t)_kernel_end, (uint64_t)_app_end,
-             PROT_NORMAL_MEM | AP_EL0_RW_ELX_RW);
+  map_region(user_l1, k_start, k_start, k_size,
+             PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_UXN);
+  map_region(kernel_l1, k_start + KERNEL_VIRT_BASE, k_start, k_size,
+             PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_UXN);
 
   // 3. Map UART
-  map_page_4k(UART_BASE, UART_BASE,
+  map_page_4k(user_l1, UART_BASE, UART_BASE,
               PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_RW_ELX_RW);
 
   // 4. Map GIC v3
-  map_region(GICD_BASE, GICD_BASE + 0xFFFF,
+  map_region(user_l1, GICD_BASE, GICD_BASE, 0x10000,
              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
-  map_region(GICR_BASE, GICR_BASE + 0x80000,
+  map_region(user_l1, GICR_BASE, GICR_BASE, 0x80000,
              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
 
   // Ensure TCR matches your 4KB granule and 32-bit (4GB) address space
@@ -79,10 +105,13 @@ void kernel_setup_mmu() {
                  TCR_EL1_T1SZ_32 |  // T1SZ: 32 bits (4GB)
                  TCR_TG0_4KB | TCR_SH0_INNER_SHAREABLE |
                  TCR_ORGN0_NORMAL_MEMORY_OWBRA_WAC |
-                 TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC;
+                 TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC | TCR_TG1_4KB |
+                 TCR_SH1_INNER_SHAREABLE | TCR_ORGN1_NORMAL_MEMORY_OWBRA_WAC |
+                 TCR_IRGN1_NORMAL_MEMORY_IWBRA_WAC;
 
   write_sysreg(TCR_EL1, tcr);
-  write_sysreg(TTBR0_EL1, el1_l1);
+  write_sysreg(TTBR0_EL1, user_l1);
+  write_sysreg(TTBR1_EL1, kernel_l1);
 
   asm volatile("dsb sy; isb");
 
@@ -104,10 +133,13 @@ void seccore_setup_mmu() {
                  TCR_EL1_T1SZ_32 |  // T1SZ: 32 bits (4GB)
                  TCR_TG0_4KB | TCR_SH0_INNER_SHAREABLE |
                  TCR_ORGN0_NORMAL_MEMORY_OWBRA_WAC |
-                 TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC;
+                 TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC | TCR_TG1_4KB |
+                 TCR_SH1_INNER_SHAREABLE | TCR_ORGN1_NORMAL_MEMORY_OWBRA_WAC |
+                 TCR_IRGN1_NORMAL_MEMORY_IWBRA_WAC;
 
   write_sysreg(TCR_EL1, tcr);
-  write_sysreg(TTBR0_EL1, el1_l1);
+  write_sysreg(TTBR0_EL1, user_l1);
+  write_sysreg(TTBR1_EL1, kernel_l1);
 
   asm volatile("dsb sy; isb");
 

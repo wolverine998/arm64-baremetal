@@ -1,10 +1,9 @@
-#include "../../include/mmu.h"
 #include "../../include/syscall.h"
 #include "../../include/trap_frame.h"
 #include "../../include/uart.h"
 #include <stdint.h>
 
-void kernel_sync(trap_frame_t *frame) {
+void kernel_sync_elx(trap_frame_t *frame) {
   kernel_puts("FATAL EXCEPTIONNN\n");
   kernel_puts("FAR: ");
   kernel_hex(frame->far);
@@ -27,6 +26,8 @@ void kernel_sync_el0(trap_frame_t *frame) {
     } else {
       kernel_puts("Unknown system call\n");
     }
+  } else {
+    kernel_sync_elx(frame);
   }
 }
 

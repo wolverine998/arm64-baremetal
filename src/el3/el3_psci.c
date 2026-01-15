@@ -2,7 +2,6 @@
 #include "../../include/gic-v3.h"
 #include "../../include/irq.h"
 #include "../../include/psci.h"
-#include "../../include/registers.h"
 
 cpu_state_t cpus[MAX_CPUS];
 

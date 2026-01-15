@@ -76,7 +76,7 @@ b .
 
 // current el with sp_elx
 .balign(0x80)
-b .
+b sync_handler_cur_elx
 .balign(0x80)
 b irq_handler
 .balign(0x80)
@@ -103,6 +103,12 @@ b .
 b .
 .balign(0x80)
 b .
+
+sync_handler_cur_elx:
+    SAVE_CONTEXT
+    mov x0, sp
+    bl kernel_sync_elx
+    RESTORE_CONTEXT
 
 sync_handler_el0:
     SAVE_CONTEXT

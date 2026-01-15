@@ -13,7 +13,9 @@ typedef struct {
   uint64_t regs[31];
   uint64_t sp;
   uint64_t vbar;
-  uint64_t ttbr;
+  uint64_t ttbr0;
+  uint64_t ttbr1;
+  uint64_t tcr;
   uint64_t sctlr;
   uint64_t elr;
   uint8_t initialized;
@@ -31,7 +33,9 @@ extern cpu_state_t cpus[MAX_CPUS];
 
 static inline void save_context(context_t *ctx) {
   ctx->sp = read_sysreg(sp_el1);
-  ctx->ttbr = read_sysreg(ttbr0_el1);
+  ctx->ttbr0 = read_sysreg(ttbr0_el1);
+  ctx->ttbr1 = read_sysreg(ttbr1_el1);
+  ctx->tcr = read_sysreg(tcr_el1);
   ctx->vbar = read_sysreg(vbar_el1);
   ctx->sctlr = read_sysreg(sctlr_el1);
   ctx->initialized = 1;
@@ -43,7 +47,9 @@ static inline void restore_context(context_t *ctx) {
 
   write_sysreg(sp_el1, ctx->sp);
   write_sysreg(sctlr_el1, ctx->sctlr);
-  write_sysreg(ttbr0_el1, ctx->ttbr);
+  write_sysreg(ttbr0_el1, ctx->ttbr0);
+  write_sysreg(ttbr1_el1, ctx->ttbr1);
+  write_sysreg(tcr_el1, ctx->tcr);
   write_sysreg(vbar_el1, ctx->vbar);
 
   asm volatile("isb; tlbi vmalle1; dsb sy; isb");

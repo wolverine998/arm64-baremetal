@@ -110,12 +110,12 @@ void el3_fiq(trap_frame_t *frame) {
   if (interrupt_id == SGI_CORE_WAKE) {
 
     if (cpus[core_id].entry_point != 0) {
-      restore_context(&cpus[core_id].ns_context);
       uint64_t scr = RW_AARCH64 | FIQ_ROUTE | NS;
       write_sysreg(scr_el3, scr);
 
       frame->spsr = SPSR_M_EL1H;
       frame->elr = cpus[core_id].entry_point;
+      cpus[core_id].state = ON;
     }
     gic_write_eoir0(iar);
   } else if (interrupt_id == SGI_CORE_SLEEP) {
