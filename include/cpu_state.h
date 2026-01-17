@@ -5,7 +5,7 @@
 #include "trap_frame.h"
 #include <stdint.h>
 
-#define MAX_CPUS 8
+#define MAX_CPUS 10
 
 typedef enum { OFF = 0, ON, IDLE, BOOTING } power_state_t;
 

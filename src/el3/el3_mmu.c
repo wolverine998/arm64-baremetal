@@ -1,3 +1,4 @@
+#include "../../include/cpu_state.h"
 #include "../../include/gic-v3.h"
 #include "../../include/mmu.h"
 #include "../../include/registers.h"
@@ -5,10 +6,45 @@
 #include <stdint.h>
 
 __attribute__((aligned(4096))) uint64_t l1_table[512];
-__attribute__((aligned(4096))) uint64_t l2_low[512]; // 0GB - 1GB
-__attribute__((aligned(4096))) uint64_t l2_ram[512]; // 1GB - 2GB
+__attribute__((aligned(4096))) uint64_t l2_pool[12][512]; // pool of tables
 
 volatile uint64_t mmu_ready = 0;
+volatile uint8_t pool_index = 0;
+
+uint64_t *alloc_table() {
+  if (pool_index >= 12)
+    return 0;
+
+  uint64_t *table = l2_pool[pool_index++];
+
+  for (int i = 0; i < 512; i++) {
+    table[i] = 0;
+  }
+
+  return table;
+}
+
+void map_block_range(uint64_t start, uint64_t size, uint64_t flags) {
+  uint64_t l1_index = TLB_L1_INDEX(start);
+
+  // we only need to map l3 table descriptors
+  // check if there is a l2 table already
+  // if not, allocate new one
+
+  // well map the 4GB for now
+  // we just need to use the RAM_BASE index
+  if (!(l1_table[l1_index] & 1)) {
+    l1_table[l1_index] = (uint64_t)alloc_table() | PTE_TYPE_TABLE;
+  }
+  uint64_t *l2 = (uint64_t *)(l1_table[l1_index] & ~0xFFFULL);
+
+  // map in chunks of 2 MB
+  for (int i = 0; i < size; i++) {
+    uint64_t addr = start + (i * 0x200000);
+    uint64_t l2_index = TLB_L2_INDEX(addr);
+    l2[l2_index] = addr | flags | PTE_TYPE_BLOCK;
+  }
+}
 
 void setup_mmu(void) {
   // 1. MAIR: Index 0=Device, Index 1=Normal
@@ -16,43 +52,28 @@ void setup_mmu(void) {
   write_sysreg(MAIR_EL1, (0x00ULL << 0) | (0xFFULL << 8));
 
   // 2. TCR: 32-bit VA space, 4KB granules
-  uint64_t tcr = (32ULL << 0) | (3ULL << 12) | (1ULL << 10) | (1ULL << 8);
+  uint64_t tcr = TCR_EL1_T0SZ0_32 | TCR_TG0_4KB |
+                 TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC |
+                 TCR_ORGN0_NORMAL_MEMORY_OWBRA_WAC | TCR_SH0_INNER_SHAREABLE;
   write_sysreg(TCR_EL3, tcr);
 
   // 3. Clear Tables
   for (int i = 0; i < 512; i++) {
     l1_table[i] = 0;
-    l2_low[i] = 0;
-    l2_ram[i] = 0;
   }
 
-  // 4. Link Tables (Descriptor 0x3 is a Table link)
-  l1_table[0] = ((uintptr_t)l2_low | PTE_TYPE_TABLE);
-  l1_table[1] = ((uintptr_t)l2_ram | PTE_TYPE_TABLE);
+  // Map 6MB for the EL3 monitor
+  // Thats 3 blocks
+  map_block_range(RAM_BASE, 3, PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW);
 
-  // 5. Map RAM (Identity map 256MB)
-  for (int i = 0; i < 4; i++) {
-    uint64_t addr = RAM_BASE + (i * 0x20000);
-    l2_ram[(addr >> 21) & 0x1FF] =
-        addr | PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_S | PTE_TYPE_BLOCK;
-  }
-
-  // 6. Map Device I/O (UART and Bluetooth)
-  l2_low[(UART_BASE >> 21) & 0x1FF] = UART_BASE | PROT_DEVICE |
-                                      AP_EL0_NO_ELX_RW | PTE_UXN | PTE_S |
-                                      PTE_TYPE_BLOCK;
-
-  // map GIC V3
-  l2_low[(GICD_BASE >> 21) & 0x1FF] = GICD_BASE | PROT_DEVICE |
-                                      AP_EL0_NO_ELX_RW | PTE_UXN | PTE_S |
-                                      PTE_TYPE_BLOCK;
-
-  l2_low[(GICR_BASE >> 21) & 0x1FF] = GICR_BASE | PROT_DEVICE |
-                                      AP_EL0_NO_ELX_RW | PTE_UXN | PTE_S |
-                                      PTE_TYPE_BLOCK;
+  // GICD - GICR
+  map_block_range(GICD_BASE, 1, PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN);
+  map_block_range(GICR_BASE, 1, PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN);
+  // UART
+  map_block_range(UART_BASE, 1, PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN);
 
   // 7. Commit and Enable
-  write_sysreg(TTBR0_EL3, (uintptr_t)l1_table);
+  write_sysreg(TTBR0_EL3, l1_table);
   asm volatile("tlbi alle3; dsb sy; isb");
 
   uint64_t sctlr = read_sysreg(SCTLR_EL3);
@@ -72,11 +93,13 @@ void setup_mmu_secondary(void) {
   write_sysreg(MAIR_EL1, (0x00ULL << 0) | (0xFFULL << 8));
 
   // 2. Set the same TCR (Control Register)
-  uint64_t tcr = (32ULL << 0) | (3ULL << 12) | (1ULL << 10) | (1ULL << 8);
+  uint64_t tcr = TCR_EL1_T0SZ0_32 | TCR_TG0_4KB |
+                 TCR_IRGN0_NORMAL_MEMORY_IWBRA_WAC |
+                 TCR_ORGN0_NORMAL_MEMORY_OWBRA_WAC | TCR_SH0_INNER_SHAREABLE;
   write_sysreg(TCR_EL3, tcr);
 
   // 3. Point to the tables Core 0 already created
-  write_sysreg(TTBR0_EL3, (uintptr_t)l1_table);
+  write_sysreg(TTBR0_EL3, l1_table);
 
   // 4. Invalidate local TLB and ensure memory visibility
   asm volatile("tlbi alle3; dsb sy; isb");

@@ -13,6 +13,7 @@
 #define PTE_S (0ULL << 5)
 #define PTE_NS (1ULL << 5)       // Non-Secure
 #define PTE_AF (1ULL << 10)      // Access Flag
+#define PTE_SH_OUTER (2ULL << 8) // Outer Shareable
 #define PTE_SH_INNER (3ULL << 8) // Inner Shareable
 #define PTE_ATTR_INDX(idx) ((idx) << 2)
 #define PTE_PXN (1ULL << 53)
@@ -30,7 +31,7 @@
 
 // --- Memory Prot Settings ---
 #define PROT_NORMAL_MEM (PTE_AF | PTE_SH_INNER | PTE_ATTR_INDX(ATTR_I_NORMAL))
-#define PROT_DEVICE (PTE_AF | PTE_ATTR_INDX(ATTR_I_DEVICE))
+#define PROT_DEVICE (PTE_AF | PTE_SH_OUTER | PTE_ATTR_INDX(ATTR_I_DEVICE))
 
 // TCR_EL1 TG0 GRANULE SIZE
 #define TCR_TG0_4KB (0ULL << 14)
@@ -89,6 +90,15 @@
 #define KERNEL_VIRT_BASE 0xFFFFFFFF00000000ULL
 
 #define VA_TO_PA(ptr) ((ptr) - KERNEL_VIRT_BASE)
+#define PA_TO_VA(ptr) ((ptr) + KERNEL_VIRT_BASE)
+
+/* Some helpful helpers
+ * for extracting the virtual address
+ * translation table index */
+
+#define TLB_L1_INDEX(x) ((x >> 30) & 0x1FF)
+#define TLB_L2_INDEX(x) ((x >> 21) & 0x1FF)
+#define TLB_L3_INDEX(x) ((x >> 12) & 0x1FF)
 
 // mmu helper functions
 void setup_mmu();
@@ -98,6 +108,10 @@ void map_page_4k(uint64_t *root, uint64_t va, uint64_t pa, uint64_t flags);
 void map_region(uint64_t *root, uint64_t va_start, uint64_t pa_start,
                 uint64_t size, uint64_t flags);
 void unmap_region(uint64_t *root, uint64_t va, uint64_t size);
+void map_page_virtual(uint64_t *root, uint64_t va, uint64_t pa, uint64_t flags);
+void map_region_virtual(uint64_t *root, uint64_t va_start, uint64_t pa_start,
+                        uint64_t size, uint64_t flags);
+void map_block_range(uint64_t start, uint64_t size, uint64_t flags);
 void seeos_init_mmu_global();
 void seeos_enable_mmu();
 
@@ -117,6 +131,23 @@ static inline void disable_mmu_el1() {
   asm volatile("tlbi vmalle1");
   asm volatile("dsb nsh");
   asm volatile("isb");
+}
+
+static inline void tlb_flush_all_e1() {
+  asm volatile("dsb ishst\n"
+               "tlbi vmalle1is\n"
+               "dsb ish\n"
+               "isb \n" ::
+                   : "memory");
+}
+
+static inline void tlb_flush_page_el1(uint64_t va) {
+  uint64_t operand = va >> 12;
+  asm volatile("dsb ishst\n"
+               "tlbi vaale1is, %0\n"
+               "dsb ish\n"
+               "isb\n" ::"r"(operand)
+               : "memory");
 }
 
 #endif

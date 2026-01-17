@@ -18,7 +18,7 @@ SECTIONS
 
     /* EL3 Stack */
     . = ALIGN(16);
-    . += 0x20000;
+    . += 0x32000;
     _el3_stack_top = .;
 
     /* Secure execution environment code */
@@ -33,7 +33,7 @@ SECTIONS
     _seeos_end = .;
 
     . = ALIGN(16);
-    . += 0x20000;
+    . += 0x5F000;
     _seeos_stack_top = .;
 
     . = ALIGN(4096);
@@ -48,7 +48,7 @@ SECTIONS
   }
 
   . = ALIGN(16);
-  . += 0x20000;
+  . += 0x28000;
   _app_stack = .;
 
   . = ALIGN(4096);
@@ -75,6 +75,6 @@ SECTIONS
 
     /* Kernel Stack */
     . = ALIGN(16);
-    . += 0x40000;
+    . += 0x5F000;
     _kernel_stack = .;
 }
