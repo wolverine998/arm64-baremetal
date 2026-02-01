@@ -1,11 +1,9 @@
+#include "../../include/kernel_mmu.h"
 #include "../../include/gic-v3.h"
 #include "../../include/mmu.h"
 #include "../../include/registers.h"
 #include "../../include/uart.h"
 #include <stdint.h>
-
-#define GICD_VIRT (GICD_BASE + KERNEL_VIRT_BASE)
-#define GICR_VIRT (GICR_BASE + KERNEL_VIRT_BASE)
 
 // A pool of pages for tables.
 // Increased to 128 to be safe.
@@ -16,7 +14,6 @@ __attribute__((aligned(4096))) uint64_t kernel_l1[512];
 __attribute__((aligned(4096))) uint64_t user_l1[512];
 
 extern char _kernel_start[], _kernel_end[], _kernel_stack[];
-extern char _app_start[], _app_end[];
 
 volatile uint64_t mmu_lock = 1;
 
@@ -95,12 +92,14 @@ void kernel_setup_mmu() {
 
   // 3. Map UART
   map_page_4k(kernel_l1, UART_VIRT, UART_BASE,
-              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_RW_ELX_RW);
+              PROT_DEVICE_NGNRE | PTE_UXN | PTE_PXN | AP_EL0_RW_ELX_RW);
 
   // 4. Map GIC v3
-  map_region(kernel_l1, GICD_VIRT, GICD_BASE, 0x10000,
+  map_region(kernel_l1, GICD_VIRT_BASE, GICD_BASE, 0x10000,
              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
-  map_region(kernel_l1, GICR_VIRT, GICR_BASE, 0x80000,
+  map_region(kernel_l1, GICR_VIRT_BASE, GICR_BASE, 0x80000,
+             PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
+  map_region(kernel_l1, GITS_VIRT_BASE, GITS_BASE, 0x20000,
              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
 
   // Ensure TCR matches your 4KB granule and 32-bit (4GB) address space
@@ -154,15 +153,14 @@ void seccore_setup_mmu() {
   asm volatile("isb");
 }
 
-void map_page_virtual(uint64_t *root, uint64_t va, uint64_t pa,
-                      uint64_t flags) {
+void map_page_virtual(uint64_t va, uint64_t pa, uint64_t flags) {
   uint64_t va_addr = va & 0xFFFFFFFFULL;
   uint64_t l1_idx = (va_addr >> 30) & 0x1FF;
-  if (!(root[l1_idx] & 1)) {
+  if (!(kernel_l1[l1_idx] & 1)) {
     uint64_t *table = allocate_table();
-    root[l1_idx] = VA_TO_PA((uint64_t)table) | PTE_TYPE_TABLE;
+    kernel_l1[l1_idx] = VA_TO_PA((uint64_t)table) | PTE_TYPE_TABLE;
   }
-  uint64_t *l2 = (uint64_t *)(root[l1_idx] & ~0xFFFULL);
+  uint64_t *l2 = (uint64_t *)(kernel_l1[l1_idx] & ~0xFFFULL);
   l2 = (uint64_t *)((uint64_t)l2 + KERNEL_VIRT_BASE);
 
   uint64_t l2_idx = (va_addr >> 21) & 0x1FF;
@@ -179,11 +177,11 @@ void map_page_virtual(uint64_t *root, uint64_t va, uint64_t pa,
   l3[l3_idx] = (pa & ~0xFFFULL) | flags | PTE_TYPE_PAGE;
 }
 
-void map_region_virtual(uint64_t *root, uint64_t va_start, uint64_t pa_start,
-                        uint64_t size, uint64_t flags) {
+void map_region_virtual(uint64_t va_start, uint64_t pa_start, uint64_t size,
+                        uint64_t flags) {
   uint64_t va = va_start & ~0xFFFULL;
   uint64_t pa = pa_start & ~0xFFFULL;
   for (int i = 0; i < size; i += 4096) {
-    map_page_virtual(root, va + i, pa + i, flags);
+    map_page_virtual(va + i, pa + i, flags);
   }
 }

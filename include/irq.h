@@ -14,5 +14,10 @@
 #define SGI_RESERVED_5 9
 
 // SPI (to be defined)
+#define SPI_RESERVED_1 100
+#define SPI_RESERVED_2 101
+#define SPI_RESERVED_3 102
+
+void gic_el1_init_spi();
 
 #endif

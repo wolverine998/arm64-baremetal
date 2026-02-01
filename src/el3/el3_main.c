@@ -25,8 +25,9 @@ void main() {
   uint64_t spsr = SPSR_M_EL1H;
   write_sysreg(spsr_el3, spsr);
 
-  uint64_t k_entry = VA_TO_PA((uint64_t)_kernel_entry);
-  write_sysreg(elr_el3, k_entry);
+  uint64_t k_entry;
+  asm volatile("ldr %0, =_kernel_entry" : "=r"(k_entry));
+  write_sysreg(elr_el3, VA_TO_PA(k_entry));
 
   asm volatile("isb; eret");
 }

@@ -34,7 +34,7 @@ void seeos_init_mmu_global(void) {
   }
 
   // 6. Map Device I/O (UART and GIC)
-  seeos_l2_low[(UART_BASE >> 21) & 0x1FF] = UART_BASE | PROT_DEVICE |
+  seeos_l2_low[(UART_BASE >> 21) & 0x1FF] = UART_BASE | PROT_DEVICE_NGNRE |
                                             AP_EL0_NO_ELX_RW | PTE_UXN |
                                             PTE_PXN | PTE_TYPE_BLOCK;
 

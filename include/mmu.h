@@ -26,12 +26,16 @@
 #define AP_EL0_RO_ELX_RO (0x3ULL << 6)
 
 // --- MAIR Indices ---
-#define ATTR_I_DEVICE 0
+#define ATTR_I_DEVICE_NGNRNE 0
 #define ATTR_I_NORMAL 1
+#define ATTR_I_DEVICE_NGNRE 2
 
 // --- Memory Prot Settings ---
 #define PROT_NORMAL_MEM (PTE_AF | PTE_SH_INNER | PTE_ATTR_INDX(ATTR_I_NORMAL))
-#define PROT_DEVICE (PTE_AF | PTE_SH_OUTER | PTE_ATTR_INDX(ATTR_I_DEVICE))
+#define PROT_DEVICE                                                            \
+  (PTE_AF | PTE_SH_OUTER | PTE_ATTR_INDX(ATTR_I_DEVICE_NGNRNE))
+#define PROT_DEVICE_NGNRE                                                      \
+  (PTE_AF | PTE_SH_OUTER | PTE_ATTR_INDX(ATTR_I_DEVICE_NGNRE))
 
 // TCR_EL1 TG0 GRANULE SIZE
 #define TCR_TG0_4KB (0ULL << 14)
@@ -62,10 +66,11 @@
 
 // T1SZ TCR_EL1
 #define TCR_EL1_T1SZ_32 (32 << 16)
-#define TCR_EL1_T1SZ_25 (25 << 16)
+#define TCR_EL1_T1SZ_30 (30 << 16)
 
 // T0SZ TCR_EL1
 #define TCR_EL1_T0SZ0_32 (32 << 0)
+#define TCR_EL1_T0SZ0_30 (30 << 0)
 
 // inner chacheability TTBR0_EL1
 #define TCR_IRGN0_NORMAL_MEMORY_INC (0ULL << 8)
@@ -84,13 +89,22 @@
 #define TCR_SH0_OUTER_SHAREABLE (2ULL << 12)
 #define TCR_SH0_INNER_SHAREABLE (3ULL << 12)
 
-// --- Address Map ---
-#define RAM_BASE 0x40080000ULL
-#define SEC_RAM_BASE 0x0E000000ULL
-#define KERNEL_VIRT_BASE 0xFFFFFFFF00000000ULL
+// MAIR attributes
+#define MAIR_DEVICE_NGNRNE (0x00ULL << 0)
+#define MAIR_RAM (0xFFULL << 8)
+#define MAIR_DEVICE_NGNRE (0x04ULL << 16)
 
-#define VA_TO_PA(ptr) ((ptr) - KERNEL_VIRT_BASE)
-#define PA_TO_VA(ptr) ((ptr) + KERNEL_VIRT_BASE)
+// --- Address Map ---
+#define RAM_BASE 0x40000000ULL
+#define SEC_RAM_BASE 0x0E000000ULL
+#define KERNEL_VIRT_BASE 0xFFFFFFFF00000000
+
+#define RAM_SIZE_MB 512
+#define RAM_SIZE_BYTES (RAM_SIZE_MB * 1024 * 1024)
+#define RAM_END (RAM_BASE + RAM_SIZE_BYTES)
+
+#define VA_TO_PA(ptr) ((uint64_t)(ptr) - (uint64_t)(KERNEL_VIRT_BASE))
+#define PA_TO_VA(ptr) ((uint64_t)(ptr) + (uint64_t)(KERNEL_VIRT_BASE))
 
 /* Some helpful helpers
  * for extracting the virtual address
@@ -108,9 +122,9 @@ void map_page_4k(uint64_t *root, uint64_t va, uint64_t pa, uint64_t flags);
 void map_region(uint64_t *root, uint64_t va_start, uint64_t pa_start,
                 uint64_t size, uint64_t flags);
 void unmap_region(uint64_t *root, uint64_t va, uint64_t size);
-void map_page_virtual(uint64_t *root, uint64_t va, uint64_t pa, uint64_t flags);
-void map_region_virtual(uint64_t *root, uint64_t va_start, uint64_t pa_start,
-                        uint64_t size, uint64_t flags);
+void map_page_virtual(uint64_t va, uint64_t pa, uint64_t flags);
+void map_region_virtual(uint64_t va_start, uint64_t pa_start, uint64_t size,
+                        uint64_t flags);
 void map_block_range(uint64_t start, uint64_t size, uint64_t flags);
 void seeos_init_mmu_global();
 void seeos_enable_mmu();

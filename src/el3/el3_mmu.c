@@ -48,8 +48,9 @@ void map_block_range(uint64_t start, uint64_t size, uint64_t flags) {
 
 void setup_mmu(void) {
   // 1. MAIR: Index 0=Device, Index 1=Normal
-  write_sysreg(MAIR_EL3, (0x00ULL << 0) | (0xFFULL << 8));
-  write_sysreg(MAIR_EL1, (0x00ULL << 0) | (0xFFULL << 8));
+  uint64_t mair = MAIR_DEVICE_NGNRNE | MAIR_RAM | MAIR_DEVICE_NGNRE;
+  write_sysreg(MAIR_EL3, mair);
+  write_sysreg(MAIR_EL1, mair);
 
   // 2. TCR: 32-bit VA space, 4KB granules
   uint64_t tcr = TCR_EL1_T0SZ0_32 | TCR_TG0_4KB |
@@ -70,7 +71,7 @@ void setup_mmu(void) {
   map_block_range(GICD_BASE, 1, PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN);
   map_block_range(GICR_BASE, 1, PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN);
   // UART
-  map_block_range(UART_BASE, 1, PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN);
+  map_block_range(UART_BASE, 1, PROT_DEVICE_NGNRE | AP_EL0_NO_ELX_RW | PTE_UXN);
 
   // 7. Commit and Enable
   write_sysreg(TTBR0_EL3, l1_table);
@@ -89,8 +90,9 @@ void setup_mmu_secondary(void) {
     ;
 
   // 1. Set the same MAIR (Memory Attributes) as Core 0
-  write_sysreg(MAIR_EL3, (0x00ULL << 0) | (0xFFULL << 8));
-  write_sysreg(MAIR_EL1, (0x00ULL << 0) | (0xFFULL << 8));
+  uint64_t mair = MAIR_DEVICE_NGNRNE | MAIR_RAM | MAIR_DEVICE_NGNRE;
+  write_sysreg(MAIR_EL3, mair);
+  write_sysreg(MAIR_EL1, mair);
 
   // 2. Set the same TCR (Control Register)
   uint64_t tcr = TCR_EL1_T0SZ0_32 | TCR_TG0_4KB |

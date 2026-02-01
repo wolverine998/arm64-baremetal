@@ -88,7 +88,7 @@ b .
 .balign(0x80)
 b sync_handler_el0
 .balign(0x80)
-b .
+b irq_handler
 .balign(0x80)
 b .
 .balign(0x80)

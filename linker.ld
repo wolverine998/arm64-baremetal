@@ -1,80 +1,75 @@
 ENTRY(_start)
 
-RAM_BASE = 0x40080000;
+RAM_BASE = 0x40000000;
 KERNEL_VIRT_BASE = 0xFFFFFFFF00000000;
 
 SECTIONS
 {
+    /* --- PHYSICAL START --- */
     . = RAM_BASE;
 
-    /* 1. EL3 MONITOR CODE */
-    /* Use the standard '.text' name so the linker doesn't create an orphan */
     .pbl : {
-        *el3_*(.text .text.*)
-        *el3_*(.rodata .rodata.*)
-        *el3_*(.bss .bss.*)
-        *el3_*(.data .data.*)
+        *el3_*(.text* .rodata* .data* .bss*)
     }
 
-    /* EL3 Stack */
-    . = ALIGN(16);
-    . += 0x32000;
-    _el3_stack_top = .;
-
-    /* Secure execution environment code */
-    . = ALIGN(4096);
-    _seeos_begin = .;
-    .see : {
-      *see_*(.text .text.*)
-      *see_*(.rodata .rodata.*)
-      *see_*(.bss .bss.*)
-      *see_*(.data .data.*)
+    .el3_stack (NOLOAD) : {
+        . = ALIGN(16);
+        . += 0x32000;
+        _el3_stack_top = .;
     }
-    _seeos_end = .;
 
-    . = ALIGN(16);
-    . += 0x5F000;
-    _seeos_stack_top = .;
+    /* Move SEE and APP out of the way */
+    .see : ALIGN(4096) {
+        _seeos_begin = .;
+        *see_*(.text* .rodata* .data* .bss*)
+        _seeos_end = .;
+    }
 
-    . = ALIGN(4096);
-    _app_start = .;
+    .see_stack (NOLOAD) : {
+        . = ALIGN(16);
+        . += 0x5F000;
+        _seeos_stack_top = .;
+    }
 
-    .app_text : {
-        *app_*(.text.app.entry)
-        *app_*(.text .text.*)
-        *app_*(.rodata .rodata.*)
-        *app_*(.bss .bss.*)
-        *app_*(.data .data.*)
-  }
+    .app : ALIGN(4096) {
+        _app_start = .;
+        *app_*(.text.app.entry .text* .rodata* .data* .bss*)
+        . = ALIGN(16);
+        . += 0x28000;
+        _app_stack = .;
+        _app_end = .;
+    }
 
-  . = ALIGN(16);
-  . += 0x28000;
-  _app_stack = .;
+    /* --- KERNEL START --- */
+    /* 1. Get the current physical address before switching to Virtual */
+    _kernel_phys_start = ALIGN(4096);
 
-  . = ALIGN(4096);
-  _app_end = .;
+    /* 2. Set the Virtual Location Counter */
+    . = KERNEL_VIRT_BASE + _kernel_phys_start;
 
-  . = ALIGN(4096);
-  _kernel_phys_start = .;
+    /* 3. KERNEL CODE: Uses AT() to stay at the correct Physical spot */
+    .kernel_text : AT(ADDR(.kernel_text) - KERNEL_VIRT_BASE) {
+        _kernel_start = .;
+        *kernel_*(.text.kernel .text .text.*)
+        *kernel_*(.rodata .rodata.*)
+    }
 
-  /* 2. KERNEL BOUNDARY */
-  . += KERNEL_VIRT_BASE;
-  _kernel_start = .;
+    /* 4. KERNEL DATA: The 64KB gap is handled here automatically */
+    .kernel_data : AT(ADDR(.kernel_data) - KERNEL_VIRT_BASE) {
+        . = ALIGN(65536);
+        *kernel_*(.data .data.* .bss .bss.*)
+        *(COMMON)
+        _kernel_end = .;
+    }
 
-  /* 3. KERNEL CODE */
-  /* We name this .kernel_text to keep it distinct from the Monitor .text */
-  .kernel_text : AT(_kernel_phys_start) {
-      *kernel_*(.text.kernel .text .text.*)
-      *kernel_*(.rodata .rodata.*)
-      *kernel_*(.bss .bss.*)
-      *kernel_*(.data .data.*)
-  }
+    /* 5. KERNEL STACK: Dedicated space, no more heap aliasing */
+    .kernel_stack (NOLOAD) : AT(ADDR(.kernel_stack) - KERNEL_VIRT_BASE) {
+        . = ALIGN(4096);
+        . += 0x5F000;
+        _kernel_stack = .;
+    }
 
-   . = ALIGN(4096);
-   _kernel_end = .;
-
-    /* Kernel Stack */
-    . = ALIGN(16);
-    . += 0x5F000;
-    _kernel_stack = .;
+    .kernel_heap : AT(ADDR(.kernel_heap) - KERNEL_VIRT_BASE) {
+        _heap_begin = ALIGN(4096);
+    }
 }

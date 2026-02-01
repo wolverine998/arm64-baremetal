@@ -48,6 +48,20 @@
 #define ESR_EC_MASK(esr) ((esr >> 26) & 0x3F)
 #define EC_SVC (0x15)
 #define EC_SMC (0x17)
+#define EC_DATA_ABORT_LOWER (0x24)
+#define EC_DATA_ABORT (0x25)
+#define ESR_ISS_MASK(esr) (esr & 0x1FFFFFF)
+
+// ISS
+#define ISS_WNR(iss) ((iss >> 6) & 0x1)
+#define ISS_VALID(iss) ((iss >> 24) & 0x1)
+
+// DFSC
+#define ISS_DFSC_MASK(iss) (iss & 0x3F)
+#define DFSC_TRANSLATION_L0 (0x4)
+#define DFSC_TRANSLATION_L1 (0x5)
+#define DFSC_TRANSLATION_L2 (0x6)
+#define DFSC_TRANSLATION_L3 (0x7)
 
 // Helper methods
 static inline void mask_interrupts(int8_t mask) {

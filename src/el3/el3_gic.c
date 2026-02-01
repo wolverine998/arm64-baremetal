@@ -11,6 +11,11 @@ void gic_init_global() {
 
   while (read_gicd(GICD_CTLR) & GICD_CTLR_RWP)
     ;
+
+  // unlock interupts for kernel
+  for (int i = SPI_RESERVED_1; i <= SPI_RESERVED_3; i++) {
+    gic_el3_conf_spi(i, 0, 1);
+  }
 }
 
 void gic_init_core(int core_id) {
@@ -20,8 +25,8 @@ void gic_init_core(int core_id) {
   gic_enable_sre();
 
   uint32_t igroupr0 = read_gicr(rd_base, GICR_IGROUPR0);
-  igroupr0 &= ~(1 << 0);
-  igroupr0 &= ~(1 << 31);
+  igroupr0 &= ~(1 << SGI_CORE_WAKE);
+  igroupr0 &= ~(1 << SGI_CORE_SLEEP);
   write_gicr(rd_base, GICR_IGROUPR0, igroupr0);
 
   // 3. Simple approach: Direct byte write for Priority
