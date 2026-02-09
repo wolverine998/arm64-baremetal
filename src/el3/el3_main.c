@@ -44,6 +44,8 @@ void init_sec_core(int core_id) {
   uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
   write_sysreg(scr_el3, scr);
 
+  gic_disable_redistributor(GET_GICR_BASE(core_id));
+
   uart_puts("Parking core\n");
   cpus[core_id].state = OFF;
 }

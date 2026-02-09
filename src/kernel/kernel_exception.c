@@ -1,4 +1,5 @@
 #include "../../include/gic-v3.h"
+#include "../../include/gicv3-its.h"
 #include "../../include/irq.h"
 #include "../../include/registers.h"
 #include "../../include/syscall.h"
@@ -62,14 +63,14 @@ void kernel_sync_el0(trap_frame_t *frame) {
 }
 
 void kernel_irq(trap_frame_t *frame) {
+  uint32_t core_id = get_core_id();
   uint32_t iar = gic_read_iar1();
   uint32_t interupt_id = INTERRUPT_ID_MASK(iar);
 
-  if (interupt_id == SPI_RESERVED_1) {
-    kernel_printf("Interupt ID: %d active\n", interupt_id);
-    gic_write_eoir1(iar);
-  } else {
-    kernel_printf("Interrupt ID: %d fired\n", interupt_id);
-    gic_write_eoir1(iar);
+  if (interupt_id != 0 || interupt_id != 1023) {
+    kernel_printf("Interrupt ID: %d fired on core %d\n", interupt_id,
+                  get_core_id());
   }
+
+  gic_write_eoir1(iar);
 }

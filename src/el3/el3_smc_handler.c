@@ -1,4 +1,5 @@
 #include "../../include/cpu_state.h"
+#include "../../include/mmu.h"
 #include "../../include/registers.h"
 #include "../../include/smc.h"
 
@@ -28,9 +29,10 @@ void el3_smc_handler(trap_frame_t *frame, uint64_t fun_id) {
     for (int i = 19; i <= 30; i++) {
       frame->regs[i] = cpus[core_id].ns_context.regs[i];
     }
-    frame->elr = cpus[core_id].ns_context.elr;
     uint64_t scr = RW_AARCH64 | FIQ_ROUTE | NS;
     write_sysreg(scr_el3, scr);
+    frame->spsr = SPSR_M_EL1H;
+    frame->elr = cpus[core_id].ns_context.elr;
     break;
   }
   case SMC_VERSION: {

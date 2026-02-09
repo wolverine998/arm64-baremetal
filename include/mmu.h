@@ -122,6 +122,7 @@ void map_page_4k(uint64_t *root, uint64_t va, uint64_t pa, uint64_t flags);
 void map_region(uint64_t *root, uint64_t va_start, uint64_t pa_start,
                 uint64_t size, uint64_t flags);
 void unmap_region(uint64_t *root, uint64_t va, uint64_t size);
+void unmap_region_virtual(uint64_t *root, uint64_t va, uint64_t size);
 void map_page_virtual(uint64_t va, uint64_t pa, uint64_t flags);
 void map_region_virtual(uint64_t va_start, uint64_t pa_start, uint64_t size,
                         uint64_t flags);
@@ -131,7 +132,7 @@ void seeos_enable_mmu();
 
 static inline void enable_mmu_el1() {
   uint64_t sctlr = read_sysreg(sctlr_el1);
-  sctlr |= SCTLR_M | SCTLR_A | SCTLR_I | SCTLR_C | SCTLR_SA | SCTLR_SA0;
+  sctlr |= SCTLR_M | SCTLR_I | SCTLR_C | SCTLR_SA | SCTLR_SA0;
   write_sysreg(sctlr_el1, sctlr);
   asm volatile("isb");
 }

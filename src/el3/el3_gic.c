@@ -1,5 +1,6 @@
 #include "../../include/gic-v3.h"
 #include "../../include/irq.h"
+#include <stddef.h>
 #include <stdint.h>
 
 void gic_init_global() {
@@ -24,19 +25,13 @@ void gic_init_core(int core_id) {
 
   gic_enable_sre();
 
-  uint32_t igroupr0 = read_gicr(rd_base, GICR_IGROUPR0);
-  igroupr0 &= ~(1 << SGI_CORE_WAKE);
-  igroupr0 &= ~(1 << SGI_CORE_SLEEP);
-  write_gicr(rd_base, GICR_IGROUPR0, igroupr0);
+  gic_el3_conf_sgi(rd_base, SGI_CORE_WAKE, 0x10, 0);
+  gic_el3_conf_sgi(rd_base, SGI_CORE_SLEEP, 0x20, 0);
 
-  // 3. Simple approach: Direct byte write for Priority
-  // No masking, no shifting. ID 1 gets Priority 0. ID 31 gets Priority 0.
-  write_gicr_8(rd_base, GICR_IPRIORITYR(SGI_CORE_WAKE), 16);
-  write_gicr_8(rd_base, GICR_IPRIORITYR(SGI_CORE_SLEEP), 32);
-
-  // 4. Enable (Write-1-to-Set, so no masking needed)
-  write_gicr(rd_base, GICR_ISENABLER0, (1U << SGI_CORE_WAKE));
-  write_gicr(rd_base, GICR_ISENABLER0, (1U << SGI_CORE_SLEEP));
+  // unlock kernel SGI's
+  for (int i = SGI_RES8_IGROUP1; i <= SGI_RES15_IGROUP1; i++) {
+    gic_el3_conf_sgi(rd_base, i, 0, 1);
+  }
 
   cpu_enable_group0_interrupts();
   cpu_set_priority_mask(255);

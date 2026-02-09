@@ -23,6 +23,6 @@ void mm_free_page(void *ptr) {
   mem_zero(ptr, PAGE_SIZE);
   uint64_t index = ((uint64_t)ptr - (uint64_t)_heap_begin) / PAGE_SIZE;
   pages[index] = 0;
-  unmap_region(kernel_l1, (uint64_t)ptr, 1);
+  unmap_region_virtual(kernel_l1, (uint64_t)ptr, PAGE_SIZE);
   tlb_flush_page_el1((uint64_t)ptr);
 }

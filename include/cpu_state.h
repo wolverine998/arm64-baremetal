@@ -52,7 +52,7 @@ static inline void restore_context(context_t *ctx) {
   write_sysreg(tcr_el1, ctx->tcr);
   write_sysreg(vbar_el1, ctx->vbar);
 
-  asm volatile("isb; tlbi vmalle1; dsb sy; isb");
+  asm volatile("isb; tlbi vmalle1; dsb ish; isb");
 }
 
 #endif

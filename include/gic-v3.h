@@ -2,6 +2,7 @@
 #define __GICV3__
 
 #include "mmu.h"
+#include "registers.h"
 #include <stdint.h>
 
 // --- Raw Access Helpers (The "Fuck Structs" Way) ---
@@ -18,6 +19,8 @@
 
 // --- GICD (Distributor) Offsets ---
 #define GICD_CTLR 0x0000
+#define GICD_TYPER 0x0004
+#define GICD_IIDR 0x0008
 #define GICD_IGROUPR(n) (0x0080 + (n) * 4)
 #define GICD_ISENABLER(n) (0x0100 + (n) * 4)
 #define GICD_ICENABLER(n) (0x0180 + (n) * 4)
@@ -25,14 +28,14 @@
 #define GICD_IPRIORITYR(n) (0x0400 + (n)) // Byte access
 #define GICD_IROUTER(n) (0x6000 + (n) * 8)
 // --- GICD_CTLR Bits
-#define GICD_CTLR_RWP (1U << 31)
-#define GICD_CTLR_E1NWF (1U << 7)
-#define GICD_CTLR_DS (1U << 6)
-#define GICD_CTLR_ARE_NS (1U << 5) // Corrected: Bit 5
-#define GICD_CTLR_ARE_S (1U << 4)  // Corrected: Bit 4
-#define GICD_CTLR_ENGRP1S (1U << 2)
-#define GICD_CTLR_ENGRP1NS (1U << 1)
-#define GICD_CTLR_ENGRP0 (1U << 0)
+#define GICD_CTLR_RWP (1 << 31)
+#define GICD_CTLR_E1NWF (1 << 7)
+#define GICD_CTLR_DS (1 << 6)
+#define GICD_CTLR_ARE_NS (1 << 5) // Corrected: Bit 5
+#define GICD_CTLR_ARE_S (1 << 4)  // Corrected: Bit 4
+#define GICD_CTLR_ENGRP1S (1 << 2)
+#define GICD_CTLR_ENGRP1NS (1 << 1)
+#define GICD_CTLR_ENGRP0 (1 << 0)
 
 // --- GICR (Redistributor) Offsets ---
 #define GICR_CTLR 0x0000
@@ -42,7 +45,10 @@
 #define GICR_WAKER 0x0014
 #define GICR_IGROUPR0 (GICR_SGI_OFFSET + 0x0080)
 #define GICR_ISENABLER0 (GICR_SGI_OFFSET + 0x0100)
+#define GICR_ICENABLER0 (GICR_SGI_OFFSET + 0x0180)
 #define GICR_IPRIORITYR(n) (GICR_SGI_OFFSET + 0x0400 + (n))
+#define GICR_IGRPMODR0 (GICR_SGI_OFFSET + 0x0D00)
+#define GICR_NSACR0 (GICR_SGI_OFFSET + 0x0E00)
 
 // GICR_CTLR bits
 #define GICR_CTLR_ENLPIS (1 << 0)
@@ -154,6 +160,32 @@ static inline void gic_el3_set_spi_pending(uint32_t int_id) {
              (1 << INTERRUPT_BIT_POSITION(int_id)));
 }
 
+static inline void gic_el3_conf_sgi(uint64_t rd_base, uint32_t int_id,
+                                    uint8_t priority, int group) {
+  if (int_id > 15)
+    return;
+
+  uint32_t igroup = read_gicr(rd_base, GICR_IGROUPR0);
+
+  if (group)
+    igroup |= (1 << int_id);
+  else
+    igroup &= ~(1 << int_id);
+
+  write_gicr(rd_base, GICR_IGROUPR0, igroup);
+  write_gicr(rd_base, GICR_ISENABLER0, (1 << int_id));
+  write_gicr_8(rd_base, GICR_IPRIORITYR(int_id), priority);
+}
+
+static inline void gic_el3_unlock_sgi(uint64_t rd_base, uint32_t int_id) {
+  if (int_id > 15)
+    return;
+
+  uint32_t bitmask = (0x2 << (int_id * 2));
+
+  write_gicr(rd_base, GICR_NSACR0, bitmask);
+}
+
 // --- CPU Interface (System Registers) ---
 static inline void gic_enable_sre() {
   uint64_t sre;
@@ -196,8 +228,14 @@ static inline void send_sgi0_to_core(uint8_t target_core, uint8_t sgi_id) {
 }
 
 static inline void send_sgi1_to_core(uint8_t target_core, uint8_t sgi_id) {
-  uint64_t sgi_val = (target_core) | ((uint64_t)sgi_id << 24);
+  uint64_t sgi_val = (1 << target_core) | ((uint64_t)sgi_id << 24);
   asm volatile("msr ICC_SGI1R_EL1, %0" : : "r"(sgi_val));
+  asm volatile("dsb sy; isb");
+}
+
+static inline void send_asgi1_to_core(uint8_t target_core, uint8_t sgi_id) {
+  uint64_t sgi_val = (1 << target_core) | ((uint64_t)sgi_id << 24);
+  asm volatile("msr ICC_ASGI1R_EL1, %0" : : "r"(sgi_val));
   asm volatile("dsb sy; isb");
 }
 

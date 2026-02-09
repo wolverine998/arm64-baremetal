@@ -16,15 +16,17 @@ extern void el3_smc_handler(trap_frame_t *frame, uint64_t function_id);
 void el3_cpu_off(uint32_t target_core) {
   uart_puts("Turning off core\n");
   // first, disable redistributor
+  uint64_t rd_base = GET_GICR_BASE(target_core);
+  gic_disable_redistributor(rd_base);
 
   // disable mmu, caches, and stack check
   uint64_t sctlr = read_sysreg(sctlr_el1);
-  sctlr &= ~(SCTLR_M | SCTLR_A | SCTLR_I | SCTLR_C | SCTLR_SA | SCTLR_SA0);
+  sctlr &= ~(SCTLR_M | SCTLR_I | SCTLR_C | SCTLR_SA | SCTLR_SA0);
   write_sysreg(sctlr_el1, sctlr);
   write_sysreg(ttbr0_el1, 0);
-  asm volatile("isb");
-  asm volatile("tlbi vmalle1; dsb nsh");
-  asm volatile("isb");
+  write_sysreg(ttbr1_el1, 0);
+  instruction_barrier();
+  tlb_flush_all_e1();
 
   uint32_t mask = SERROR | IRQ | DEBUG;
   write_sysreg(daif, mask);
@@ -78,8 +80,8 @@ void el3_sync_lower(trap_frame_t *frame) {
         }
         uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
         write_sysreg(scr_el3, scr);
-        write_sysreg(spsr_el3, SPSR_M_EL1H);
-        write_sysreg(elr_el3, cpus[core_id].s_context.elr);
+        frame->spsr = SPSR_M_EL1H;
+        frame->elr = cpus[core_id].s_context.elr;
       } else {
         disable_mmu_el1();
         write_sysreg(ttbr0_el1, 0);
@@ -103,13 +105,11 @@ void el3_fiq(trap_frame_t *frame) {
   // mark cpu on
   uint32_t iar = gic_read_iar0();
   uint32_t interrupt_id = INTERRUPT_ID_MASK(iar);
-  uint64_t mpidr;
-  asm volatile("mrs %0, mpidr_el1" : "=r"(mpidr));
-  uint64_t core_id = mpidr & 0xFF;
+  uint64_t core_id = get_core_id();
 
   if (interrupt_id == SGI_CORE_WAKE) {
-
     if (cpus[core_id].entry_point != 0) {
+      gic_enable_redistributor(GET_GICR_BASE(core_id));
       uint64_t scr = RW_AARCH64 | FIQ_ROUTE | NS;
       write_sysreg(scr_el3, scr);
 
@@ -117,10 +117,9 @@ void el3_fiq(trap_frame_t *frame) {
       frame->elr = cpus[core_id].entry_point;
       cpus[core_id].state = ON;
     }
-    gic_write_eoir0(iar);
   } else if (interrupt_id == SGI_CORE_SLEEP) {
     // just jump to sleep function
-    gic_write_eoir0(iar);
     el3_cpu_off(core_id);
   }
+  gic_write_eoir0(iar);
 }

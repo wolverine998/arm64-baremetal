@@ -82,13 +82,20 @@ void kernel_setup_mmu() {
     kernel_l1[i] = 0;
 
   uint64_t k_start = (uint64_t)_kernel_start;
+  uint64_t k_end = (uint64_t)_kernel_end;
+  uint64_t k_size = k_end - k_start;
   uint64_t k_stack = (uint64_t)_kernel_stack;
-  uint64_t k_size = k_stack - k_start;
+  uint64_t s_size = k_stack - k_end;
 
   map_region(user_l1, k_start, k_start, k_size,
              PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_UXN);
   map_region(kernel_l1, k_start, k_start, k_size,
              PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_UXN);
+
+  map_region(user_l1, k_end, k_end, s_size,
+             PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_PXN);
+  map_region(kernel_l1, k_end, k_end, s_size,
+             PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_PXN);
 
   // 3. Map UART
   map_page_4k(kernel_l1, UART_VIRT, UART_BASE,
@@ -119,7 +126,7 @@ void kernel_setup_mmu() {
 
   // Enable MMU
   uint64_t sctlr = read_sysreg(SCTLR_EL1);
-  sctlr |= (SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_I | SCTLR_SA | SCTLR_SA0);
+  sctlr |= (SCTLR_M | SCTLR_C | SCTLR_I | SCTLR_SA | SCTLR_SA0);
   write_sysreg(SCTLR_EL1, sctlr);
 
   asm volatile("isb");
@@ -147,7 +154,7 @@ void seccore_setup_mmu() {
 
   // Enable MMU
   uint64_t sctlr = read_sysreg(SCTLR_EL1);
-  sctlr |= (SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_I | SCTLR_SA | SCTLR_SA0);
+  sctlr |= (SCTLR_M | SCTLR_C | SCTLR_I | SCTLR_SA | SCTLR_SA0);
   write_sysreg(SCTLR_EL1, sctlr);
 
   asm volatile("isb");
@@ -183,5 +190,26 @@ void map_region_virtual(uint64_t va_start, uint64_t pa_start, uint64_t size,
   uint64_t pa = pa_start & ~0xFFFULL;
   for (int i = 0; i < size; i += 4096) {
     map_page_virtual(va + i, pa + i, flags);
+  }
+}
+
+void unmap_region_virtual(uint64_t *root, uint64_t va_start, uint64_t size) {
+  for (uint64_t i = 0; i < size; i += 4096) {
+    uint64_t va = va_start + i;
+    uint64_t va_addr = va & 0xFFFFFFFFULL;
+
+    uint64_t l1_idx = (va_addr >> 30) & 0x1FF;
+    if (!(root[l1_idx] & 1))
+      continue;
+
+    uint64_t *l2 = (uint64_t *)PA_TO_VA(root[l1_idx] & ~0xFFFULL);
+    uint64_t l2_idx = (va_addr >> 21) & 0x1FF;
+    if (!(l2[l2_idx] & 1))
+      continue;
+
+    uint64_t *l3 = (uint64_t *)PA_TO_VA(l2[l2_idx] & ~0xFFFULL);
+    uint64_t l3_idx = (va_addr >> 12) & 0x1FF;
+
+    l3[l3_idx] = 0;
   }
 }

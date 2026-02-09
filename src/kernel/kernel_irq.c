@@ -6,7 +6,7 @@ void gic_el1_init_spi() {
   gic_conf_spi(SPI_RESERVED_2, 0x50, 1);
   gic_conf_spi(SPI_RESERVED_3, 0x60, 1);
 
-  gic_route_spi(SPI_RESERVED_1, 1);
-  gic_route_spi(SPI_RESERVED_3, 2);
-  gic_route_spi(SPI_RESERVED_3, 3);
+  gic_route_spi(SPI_RESERVED_1, 0);
+  gic_route_spi(SPI_RESERVED_2, 1);
+  gic_route_spi(SPI_RESERVED_3, 1);
 }

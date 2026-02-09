@@ -63,6 +63,16 @@
 #define GITS_CREADR_STALLED(n) (n & 0x1)
 #define GITS_CREADR_OFFSET(n) ((n >> 5) & 0x7FFF)
 
+typedef struct __attribute__((packed)) {
+  uint32_t valid : 1;
+  uint32_t type : 1;
+  uint32_t pintid : 16;
+  uint32_t reserved : 14;
+  uint32_t icid : 16;
+  uint32_t vpeid : 16;
+  uint32_t reserved2 : 32;
+} device_itt_t;
+
 extern uint32_t cmd_offset;
 
 void gic_redistributor_init_lpi();
@@ -71,12 +81,18 @@ void gic_its_disable();
 void gic_its_prepare();
 void gic_its_configure_lpi(uint32_t interrupt_id, uint8_t priority,
                            uint8_t enabled);
-void its_mapd(uint64_t device_id, uint64_t itt_addr, uint32_t size);
+void its_mapd(uint64_t device_id, uint64_t itt_addr, uint32_t size,
+              uint32_t valid);
 void its_mapc(uint32_t collection_id, uint32_t rd_base);
 void its_mapti(uint64_t device_id, uint32_t event_id, uint32_t interrupt_id,
                uint32_t collection_id);
 void its_sync(uint32_t rd_base);
 void its_int(uint64_t device_id, uint32_t event_id);
 void its_inv(uint64_t device_id, uint32_t event_id);
+void its_discard(uint64_t device_id, uint32_t event_id);
+void its_clear(uint64_t device_id, uint32_t event_id);
+void its_invall(uint32_t collection_id);
+void its_movall(uint32_t rd_base, uint32_t rd_target);
+void its_movi(uint64_t device_id, uint32_t event_id, uint32_t collection_id);
 
 #endif

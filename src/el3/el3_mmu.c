@@ -78,7 +78,7 @@ void setup_mmu(void) {
   asm volatile("tlbi alle3; dsb sy; isb");
 
   uint64_t sctlr = read_sysreg(SCTLR_EL3);
-  sctlr |= SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_I | SCTLR_SA;
+  sctlr |= SCTLR_M | SCTLR_C | SCTLR_I | SCTLR_SA;
   write_sysreg(SCTLR_EL3, sctlr);
   asm volatile("isb");
 
@@ -108,7 +108,7 @@ void setup_mmu_secondary(void) {
 
   // 5. Flip the "On" switch
   uint64_t sctlr = read_sysreg(SCTLR_EL3);
-  sctlr |= SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_I | SCTLR_SA;
+  sctlr |= SCTLR_M | SCTLR_C | SCTLR_I | SCTLR_SA;
   write_sysreg(SCTLR_EL3, sctlr);
 
   asm volatile("isb");
