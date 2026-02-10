@@ -59,6 +59,21 @@ static inline void gic_conf_sgi(uint32_t int_id, uint8_t priority, int group) {
   write_gicr_8(rd_base, GICR_IPRIORITYR(int_id), priority);
 }
 
+static inline void gic_conf_ppi(uint32_t int_id, uint8_t priority, int group) {
+  uint64_t rd_base = PA_TO_VA(GET_GICR_BASE(get_core_id()));
+
+  uint32_t igroup = read_gicr(rd_base, GICR_IGROUPR0);
+
+  if (group)
+    igroup |= (1 << int_id);
+  else
+    igroup &= ~(1 << int_id);
+
+  write_gicr(rd_base, GICR_IGROUPR0, igroup);
+  write_gicr(rd_base, GICR_ISENABLER0, (1 << int_id));
+  write_gicr_8(rd_base, GICR_IPRIORITYR(int_id), priority);
+}
+
 static inline void gic_route_spi(uint32_t int_id, uint64_t affinity) {
   if (int_id < 32)
     return;
@@ -116,6 +131,46 @@ static inline void gic_disable_sgi(uint32_t int_id) {
   uint64_t rd_base = PA_TO_VA(GET_GICR_BASE(core_id));
 
   write_gicr(rd_base, GICR_ICENABLER0, 1 << int_id);
+}
+
+static inline void gic_enable_ppi(uint32_t int_id) {
+  if (int_id < 16 || int_id > 31)
+    return;
+
+  uint32_t core_id = get_core_id();
+
+  // get the current redistributor
+  uint64_t rd_base = PA_TO_VA(GET_GICR_BASE(core_id));
+
+  write_gicr(rd_base, GICR_ISENABLER0, 1 << int_id);
+}
+
+static inline void gic_disable_ppi(uint32_t int_id) {
+  if (int_id < 16 || int_id > 31)
+    return;
+
+  uint32_t core_id = get_core_id();
+
+  // get the current redistributor
+  uint64_t rd_base = PA_TO_VA(GET_GICR_BASE(core_id));
+
+  write_gicr(rd_base, GICR_ICENABLER0, 1 << int_id);
+}
+
+static inline void gicr_clear_pending(uint32_t int_id) {
+  uint32_t core_id = get_core_id();
+
+  uint64_t rd_base = PA_TO_VA(GET_GICR_BASE(core_id));
+
+  write_gicr(rd_base, GICR_ICPENDR0, 1 << int_id);
+}
+
+static inline void gicr_set_pending(uint32_t int_id) {
+  uint32_t core_id = get_core_id();
+
+  uint64_t rd_base = PA_TO_VA(GET_GICR_BASE(core_id));
+
+  write_gicr(rd_base, GICR_ISPENDR0, 1 << int_id);
 }
 
 #endif

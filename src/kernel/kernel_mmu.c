@@ -167,16 +167,14 @@ void map_page_virtual(uint64_t va, uint64_t pa, uint64_t flags) {
     uint64_t *table = allocate_table();
     kernel_l1[l1_idx] = VA_TO_PA((uint64_t)table) | PTE_TYPE_TABLE;
   }
-  uint64_t *l2 = (uint64_t *)(kernel_l1[l1_idx] & ~0xFFFULL);
-  l2 = (uint64_t *)((uint64_t)l2 + KERNEL_VIRT_BASE);
+  uint64_t *l2 = (uint64_t *)PA_TO_VA(kernel_l1[l1_idx] & ~0xFFFULL);
 
   uint64_t l2_idx = (va_addr >> 21) & 0x1FF;
   if (!(l2[l2_idx] & 1)) {
     uint64_t *table = allocate_table();
     l2[l2_idx] = VA_TO_PA((uint64_t)table) | PTE_TYPE_TABLE;
   }
-  uint64_t *l3 = (uint64_t *)(l2[l2_idx] & ~0xFFFULL);
-  l3 = (uint64_t *)((uint64_t)l3 + KERNEL_VIRT_BASE);
+  uint64_t *l3 = (uint64_t *)PA_TO_VA(l2[l2_idx] & ~0xFFFULL);
 
   uint64_t l3_idx = (va_addr >> 12) & 0x1FF;
 

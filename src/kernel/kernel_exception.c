@@ -1,6 +1,7 @@
+#include "../../include/generic_timer.h"
 #include "../../include/gic-v3.h"
-#include "../../include/gicv3-its.h"
-#include "../../include/irq.h"
+#include "../../include/kernel_gicv3.h"
+#include "../../include/kernel_sched.h"
 #include "../../include/registers.h"
 #include "../../include/syscall.h"
 #include "../../include/trap_frame.h"
@@ -62,15 +63,27 @@ void kernel_sync_el0(trap_frame_t *frame) {
   }
 }
 
-void kernel_irq(trap_frame_t *frame) {
+trap_frame_t *kernel_irq(trap_frame_t *frame) {
   uint32_t core_id = get_core_id();
   uint32_t iar = gic_read_iar1();
   uint32_t interupt_id = INTERRUPT_ID_MASK(iar);
 
-  if (interupt_id != 0 || interupt_id != 1023) {
-    kernel_printf("Interrupt ID: %d fired on core %d\n", interupt_id,
-                  get_core_id());
+  if (interupt_id != 0) {
+    if (interupt_id == CNTP_INTID) {
+      timer_disable_interrupts();
+      // schedule new task
+      task_t *new_task = schedule_task(frame);
+      if (new_task != 0)
+        frame = new_task->frame;
+      // increment timer and enable interrupt
+      timer_countdown(2000);
+      timer_enable_interrupts();
+    } else {
+      kernel_printf("Interrupt ID: %d fired on core %d\n", interupt_id,
+                    core_id);
+    }
   }
 
   gic_write_eoir1(iar);
+  return frame;
 }

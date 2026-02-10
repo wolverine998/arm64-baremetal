@@ -120,4 +120,5 @@ irq_handler:
     SAVE_CONTEXT
     mov x0, sp
     bl kernel_irq
+    mov sp, x0
     RESTORE_CONTEXT

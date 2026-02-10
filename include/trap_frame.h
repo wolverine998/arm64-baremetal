@@ -9,5 +9,5 @@ typedef struct {
   uint64_t elr;
   uint64_t esr;
   uint64_t far;
-} trap_frame_t;
+} __attribute__((aligned(16))) trap_frame_t;
 #endif

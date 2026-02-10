@@ -27,6 +27,7 @@ void gic_init_core(int core_id) {
 
   gic_el3_conf_sgi(rd_base, SGI_CORE_WAKE, 0x10, 0);
   gic_el3_conf_sgi(rd_base, SGI_CORE_SLEEP, 0x20, 0);
+  gic_el3_conf_ppi(rd_base, 30, 0x0, 1);
 
   // unlock kernel SGI's
   for (int i = SGI_RES8_IGROUP1; i <= SGI_RES15_IGROUP1; i++) {

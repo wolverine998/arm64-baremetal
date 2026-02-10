@@ -1,5 +1,4 @@
 #include "../../include/syscall.h"
-#include "../../include/uart.h"
 #include <stdint.h>
 
 void app_entry() {

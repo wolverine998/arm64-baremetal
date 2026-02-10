@@ -1,10 +1,11 @@
 #include "../../include/cpu_state.h"
+#include "../../include/generic_timer.h"
 #include "../../include/gic-v3.h"
 #include "../../include/gicv3-its.h"
 #include "../../include/irq.h"
 #include "../../include/kernel_gicv3.h"
 #include "../../include/kernel_mmu.h"
-#include "../../include/mm.h"
+#include "../../include/kernel_sched.h"
 #include "../../include/mmu.h"
 #include "../../include/registers.h"
 #include "../../include/smc.h"
@@ -49,12 +50,19 @@ void test_stack_execution() {
   kernel_puts("[ERROR] Stack execution allowed! Security check failed.\n");
 }
 
+void task1() { kernel_printf("Task 1 executed\n"); }
+
+void task2() { kernel_printf("Task 2 executed\n"); }
+
+void task3() { kernel_printf("Task 3 executed\n"); }
+
 void c_entry() {
   k_cpus[0] = ON;
   kernel_puts("Kernel booted successfully\n");
   initialize_memory_info();
   gic_enable_sre_el1();
   gic_el1_init_spi();
+  init_sched();
   cpu_enable_group1_interrupts();
   cpu_set_priority_mask(255);
   mask_interrupts(0);
@@ -78,6 +86,16 @@ void c_entry() {
   map_region(l1, start, start, end - start,
              PROT_NORMAL_MEM | AP_EL0_RW_ELX_RW | PTE_PXN);
 
+  gic_conf_ppi(CNTP_INTID, 0x0, 1);
+
+  create_task(task1);
+  create_task(task2);
+  create_task(task3);
+
+  timer_countdown(2000);
+  timer_enable();
+  timer_enable_interrupts();
+
   uint64_t spsr = SPSR_M_EL0;
   write_sysreg(spsr_el1, spsr);
   write_sysreg(sp_el0, end);
@@ -91,6 +109,7 @@ void sec_entry() {
   cpu_enable_group1_interrupts();
   uint32_t core_id = get_core_id();
   cpu_set_priority_mask(255);
+  gic_conf_sgi(SGI_RES8_IGROUP1, 0x0, 1);
 
   mask_interrupts(0);
 

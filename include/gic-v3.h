@@ -46,6 +46,8 @@
 #define GICR_IGROUPR0 (GICR_SGI_OFFSET + 0x0080)
 #define GICR_ISENABLER0 (GICR_SGI_OFFSET + 0x0100)
 #define GICR_ICENABLER0 (GICR_SGI_OFFSET + 0x0180)
+#define GICR_ISPENDR0 (GICR_SGI_OFFSET + 0x0200)
+#define GICR_ICPENDR0 (GICR_SGI_OFFSET + 0x0280)
 #define GICR_IPRIORITYR(n) (GICR_SGI_OFFSET + 0x0400 + (n))
 #define GICR_IGRPMODR0 (GICR_SGI_OFFSET + 0x0D00)
 #define GICR_NSACR0 (GICR_SGI_OFFSET + 0x0E00)
@@ -74,6 +76,7 @@
 #define INTERRUPT_ID_MASK(imm) (imm & 0xFFFFFF)
 #define INTERRUPT_INDEX(intid) (intid / 32)
 #define INTERRUPT_BIT_POSITION(intid) (intid % 32)
+#define ICC_SGI_IRM (1ULL << 40)
 
 static inline void write_gicd(uint64_t offset, uint32_t val) {
   *(volatile uint32_t *)(GICD_BASE + offset) = val;
@@ -163,6 +166,23 @@ static inline void gic_el3_set_spi_pending(uint32_t int_id) {
 static inline void gic_el3_conf_sgi(uint64_t rd_base, uint32_t int_id,
                                     uint8_t priority, int group) {
   if (int_id > 15)
+    return;
+
+  uint32_t igroup = read_gicr(rd_base, GICR_IGROUPR0);
+
+  if (group)
+    igroup |= (1 << int_id);
+  else
+    igroup &= ~(1 << int_id);
+
+  write_gicr(rd_base, GICR_IGROUPR0, igroup);
+  write_gicr(rd_base, GICR_ISENABLER0, (1 << int_id));
+  write_gicr_8(rd_base, GICR_IPRIORITYR(int_id), priority);
+}
+
+static inline void gic_el3_conf_ppi(uint64_t rd_base, uint32_t int_id,
+                                    uint8_t priority, int group) {
+  if (int_id < 16 || int_id > 31)
     return;
 
   uint32_t igroup = read_gicr(rd_base, GICR_IGROUPR0);
