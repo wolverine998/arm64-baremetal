@@ -123,9 +123,9 @@ void map_region(uint64_t *root, uint64_t va_start, uint64_t pa_start,
                 uint64_t size, uint64_t flags);
 void unmap_region(uint64_t *root, uint64_t va, uint64_t size);
 void unmap_region_virtual(uint64_t *root, uint64_t va, uint64_t size);
-void map_page_virtual(uint64_t va, uint64_t pa, uint64_t flags);
-void map_region_virtual(uint64_t va_start, uint64_t pa_start, uint64_t size,
-                        uint64_t flags);
+void map_page_virtual(uint64_t *root, uint64_t va, uint64_t pa, uint64_t flags);
+void map_region_virtual(uint64_t *root, uint64_t va_start, uint64_t pa_start,
+                        uint64_t size, uint64_t flags);
 void map_block_range(uint64_t start, uint64_t size, uint64_t flags);
 void seeos_init_mmu_global();
 void seeos_enable_mmu();
@@ -142,9 +142,12 @@ static inline void disable_mmu_el1() {
   sctlr &= ~(SCTLR_M);
   write_sysreg(sctlr_el1, sctlr);
   write_sysreg(ttbr0_el1, 0);
+  write_sysreg(ttbr1_el1, 0);
+  write_sysreg(tcr_el1, 0);
   asm volatile("isb");
-  asm volatile("tlbi vmalle1");
-  asm volatile("dsb nsh");
+  asm volatile("dsb ishst");
+  asm volatile("tlbi vmalle1is");
+  asm volatile("dsb ish");
   asm volatile("isb");
 }
 
@@ -152,8 +155,7 @@ static inline void tlb_flush_all_e1() {
   asm volatile("dsb ishst\n"
                "tlbi vmalle1is\n"
                "dsb ish\n"
-               "isb \n" ::
-                   : "memory");
+               "isb \n");
 }
 
 static inline void tlb_flush_page_el1(uint64_t va) {
@@ -162,6 +164,31 @@ static inline void tlb_flush_page_el1(uint64_t va) {
                "tlbi vaale1is, %0\n"
                "dsb ish\n"
                "isb\n" ::"r"(operand)
+               : "memory");
+}
+
+static inline void tlb_flush_range_el1(uint64_t va, uint8_t num,
+                                       uint8_t scale) {
+  uint64_t xt = 0;
+
+  xt |= (va >> 12) & 0x1FFFFFFFFFULL;
+
+  // ttl level 3
+  xt |= (3ULL << 37);
+
+  // num bits 43:39
+  xt |= ((uint64_t)(num & 0x1F) << 39);
+
+  // scale bits 45:44
+  xt |= ((uint64_t)(scale & 0x3) << 44);
+
+  // translation granule bits 47:46
+  xt |= (1ULL << 46);
+
+  asm volatile("dsb ishst\n"
+               "tlbi rvaae1is, %0\n"
+               "dsb ish\n"
+               "isb\n" ::"r"(xt)
                : "memory");
 }
 

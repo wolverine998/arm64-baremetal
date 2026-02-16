@@ -37,6 +37,8 @@
 #define SPSR_M_EL0 (0x0ULL << 0)
 #define SPSR_M_EL1T (0x4ULL << 0)
 #define SPSR_M_EL1H (0x5ULL << 0)
+#define SPSR_M_EL2T (0x8ULL << 0)
+#define SPSR_M_EL2H (0x9ULL << 0)
 #define SPSR_M_EL3T (0xCULL << 0)
 #define SPSR_M_EL3H (0xDULL << 0)
 #define FIQ (1 << 6)

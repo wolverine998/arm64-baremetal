@@ -1,7 +1,6 @@
 #include "../../include/cpu_state.h"
 #include "../../include/generic_timer.h"
 #include "../../include/gic-v3.h"
-#include "../../include/gicv3-its.h"
 #include "../../include/irq.h"
 #include "../../include/kernel_gicv3.h"
 #include "../../include/kernel_mmu.h"
@@ -50,11 +49,10 @@ void test_stack_execution() {
   kernel_puts("[ERROR] Stack execution allowed! Security check failed.\n");
 }
 
-void task1() { kernel_printf("Task 1 executed\n"); }
-
-void task2() { kernel_printf("Task 2 executed\n"); }
-
-void task3() { kernel_printf("Task 3 executed\n"); }
+void task1() {
+  task_t *task = get_current_task();
+  kernel_printf("Task %d done\n", task->task_id);
+}
 
 void c_entry() {
   k_cpus[0] = ON;
@@ -62,14 +60,20 @@ void c_entry() {
   initialize_memory_info();
   gic_enable_sre_el1();
   gic_el1_init_spi();
-  init_sched();
   cpu_enable_group1_interrupts();
   cpu_set_priority_mask(255);
+
+  init_sched();
+  sched_enable();
+
   mask_interrupts(0);
 
   smc_res_t res;
   smc_call(SEEOS_VERSION, &res, 0, 0, 0, 0, 0);
-  smc_call(PSCI_CPU_ON, &res, 1, VA_TO_PA((uint64_t)_kernel_entry), 0, 0, 0);
+  smc_call(PSCI_CPU_ON, &res, 1, VA_TO_PA(_kernel_entry), 0, 0, 0);
+
+  create_task(task1);
+  create_task(task1);
 
   uint64_t *l1 = (uint64_t *)user_l1;
   uint64_t k_start = (uint64_t)_kernel_start;
@@ -82,19 +86,10 @@ void c_entry() {
     wait_for_event();
   }
 
-  unmap_region(l1, k_start, k_end - k_start);
-  map_region(l1, start, start, end - start,
-             PROT_NORMAL_MEM | AP_EL0_RW_ELX_RW | PTE_PXN);
-
-  gic_conf_ppi(CNTP_INTID, 0x0, 1);
-
-  create_task(task1);
-  create_task(task2);
-  create_task(task3);
-
-  timer_countdown(2000);
-  timer_enable();
-  timer_enable_interrupts();
+  unmap_region_virtual(l1, k_start, k_end - k_start);
+  tlb_flush_all_e1();
+  map_region_virtual(l1, start, start, end - start,
+                     PROT_NORMAL_MEM | AP_EL0_RW_ELX_RW | PTE_PXN);
 
   uint64_t spsr = SPSR_M_EL0;
   write_sysreg(spsr_el1, spsr);
@@ -109,7 +104,6 @@ void sec_entry() {
   cpu_enable_group1_interrupts();
   uint32_t core_id = get_core_id();
   cpu_set_priority_mask(255);
-  gic_conf_sgi(SGI_RES8_IGROUP1, 0x0, 1);
 
   mask_interrupts(0);
 

@@ -42,7 +42,7 @@ void *mm_allocate_pages(uint32_t num_pages) {
 
       // Map the entire range into the kernel page table
       // This ensures Virtual Address == Physical Address (Direct Mapping)
-      map_region_virtual(ptr, VA_TO_PA(ptr), size,
+      map_region_virtual(kernel_l1, ptr, VA_TO_PA(ptr), size,
                          PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_PXN |
                              PTE_UXN);
 

@@ -52,6 +52,9 @@ void el3_sync(trap_frame_t *frame) {
 
   uart_puts("FAR: ");
   uart_hex(frame->far);
+
+  uart_puts("ESR: ");
+  uart_hex(frame->esr);
 }
 
 void el3_sync_lower(trap_frame_t *frame) {
@@ -72,21 +75,19 @@ void el3_sync_lower(trap_frame_t *frame) {
       for (int i = 19; i <= 30; i++) {
         cpus[core_id].ns_context.regs[i] = frame->regs[i];
       }
+      uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
 
       if (cpus[core_id].s_context.initialized) {
         restore_context(&cpus[core_id].s_context);
         for (int i = 19; i <= 30; i++) {
           frame->regs[i] = cpus[core_id].s_context.regs[i];
         }
-        uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
         write_sysreg(scr_el3, scr);
         frame->spsr = SPSR_M_EL1H;
         frame->elr = cpus[core_id].s_context.elr;
       } else {
         disable_mmu_el1();
-        write_sysreg(ttbr0_el1, 0);
 
-        uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
         write_sysreg(scr_el3, scr);
         frame->spsr = SPSR_M_EL1H;
         frame->elr = (uint64_t)_seeos_entry;

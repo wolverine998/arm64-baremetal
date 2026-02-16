@@ -37,13 +37,6 @@ void kernel_sync_elx(trap_frame_t *frame) {
 
     kernel_panic(frame, "Data abort. Shutting down\n");
   } else {
-    kernel_puts("FATAL EXCEPTIONNN\n");
-    kernel_puts("FAR: ");
-    kernel_hex(frame->far);
-    kernel_puts("ESR: ");
-    kernel_hex(frame->esr);
-    kernel_puts("ELR: ");
-    kernel_hex(frame->elr);
     kernel_panic(frame, "Unknown exception. Reseting board!!\n");
   }
 }
@@ -68,22 +61,21 @@ trap_frame_t *kernel_irq(trap_frame_t *frame) {
   uint32_t iar = gic_read_iar1();
   uint32_t interupt_id = INTERRUPT_ID_MASK(iar);
 
-  if (interupt_id != 0) {
-    if (interupt_id == CNTP_INTID) {
-      timer_disable_interrupts();
-      // schedule new task
-      task_t *new_task = schedule_task(frame);
-      if (new_task != 0)
-        frame = new_task->frame;
-      // increment timer and enable interrupt
-      timer_countdown(2000);
-      timer_enable_interrupts();
-    } else {
-      kernel_printf("Interrupt ID: %d fired on core %d\n", interupt_id,
-                    core_id);
-    }
-  }
+  trap_frame_t *next_frame = frame;
 
+  if (interupt_id != 0) {
+    if (interupt_id == CNTP_INTID || interupt_id == SCHEDULER_YIELD) {
+      timer_disable_interrupts();
+      timer_countdown(1000);
+      task_t *next = schedule_task(frame);
+      if (next != ZERO)
+        next_frame = next->frame;
+      timer_enable_interrupts();
+    } else if (interupt_id == SCHEDULER_GC) {
+      reaper_service();
+    }
+    kernel_printf("Interrupt ID: %d fired on core %d\n", interupt_id, core_id);
+  }
   gic_write_eoir1(iar);
-  return frame;
+  return next_frame;
 }

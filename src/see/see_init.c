@@ -34,7 +34,7 @@ void seeos_primary_core_init(uint64_t function_id, uint64_t arg1,
 
   seeos_mmu_ready = 1;
 
-  seeos_puts_atomic("[SEEOS]: Primary core MMU enabled\n");
+  seeos_printf("[SEEOS]: Primary core initialized\n");
   seeos_servicer(function_id, arg1, arg2);
 }
 
@@ -44,6 +44,6 @@ void seeos_secondary_core_init(uint64_t function_id, uint64_t arg1,
     ;
 
   seeos_enable_mmu();
-  seeos_puts_atomic("[SEEOS]: Secondary core initialized\n");
+  seeos_printf("[SEEOS]: Secondary core initialized\n");
   seeos_servicer(function_id, arg1, arg2);
 }

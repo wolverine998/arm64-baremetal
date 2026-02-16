@@ -65,7 +65,7 @@ void setup_mmu(void) {
 
   // Map 6MB for the EL3 monitor
   // Thats 3 blocks
-  map_block_range(RAM_BASE, 3, PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW);
+  map_block_range(RAM_BASE, 6, PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW);
 
   // GICD - GICR
   map_block_range(GICD_BASE, 1, PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN);

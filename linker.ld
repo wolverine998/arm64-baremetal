@@ -20,7 +20,7 @@ SECTIONS
 
     /* Move SEE and APP out of the way */
     .see : ALIGN(4096) {
-        _seeos_begin = .;
+        _seeos_start = .;
         *see_*(.text* .rodata* .data* .bss*)
         _seeos_end = .;
     }

@@ -242,19 +242,25 @@ static inline void gic_write_eoir1(uint32_t iar) {
 }
 
 static inline void send_sgi0_to_core(uint8_t target_core, uint8_t sgi_id) {
-  uint64_t sgi_val = (1 << target_core) | ((uint64_t)sgi_id << 24);
+  uint64_t target_list =
+      (target_core == 0xFF) ? 1ULL << 40 : 1ULL << target_core;
+  uint64_t sgi_val = target_list | ((uint64_t)sgi_id << 24);
   asm volatile("msr ICC_SGI0R_EL1, %0" : : "r"(sgi_val));
   asm volatile("dsb sy; isb");
 }
 
 static inline void send_sgi1_to_core(uint8_t target_core, uint8_t sgi_id) {
-  uint64_t sgi_val = (1 << target_core) | ((uint64_t)sgi_id << 24);
+  uint64_t target_list =
+      (target_core == 0xFF) ? 1ULL << 40 : 1ULL << target_core;
+  uint64_t sgi_val = target_list | ((uint64_t)sgi_id << 24);
   asm volatile("msr ICC_SGI1R_EL1, %0" : : "r"(sgi_val));
   asm volatile("dsb sy; isb");
 }
 
 static inline void send_asgi1_to_core(uint8_t target_core, uint8_t sgi_id) {
-  uint64_t sgi_val = (1 << target_core) | ((uint64_t)sgi_id << 24);
+  uint64_t target_list =
+      (target_core == 0xFF) ? 1ULL << 40 : 1ULL << target_core;
+  uint64_t sgi_val = target_list | ((uint64_t)sgi_id << 24);
   asm volatile("msr ICC_ASGI1R_EL1, %0" : : "r"(sgi_val));
   asm volatile("dsb sy; isb");
 }

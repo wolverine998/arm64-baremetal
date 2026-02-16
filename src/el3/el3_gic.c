@@ -31,7 +31,7 @@ void gic_init_core(int core_id) {
 
   // unlock kernel SGI's
   for (int i = SGI_RES8_IGROUP1; i <= SGI_RES15_IGROUP1; i++) {
-    gic_el3_conf_sgi(rd_base, i, 0, 1);
+    gic_el3_conf_sgi(rd_base, i, 0xF0, 1);
   }
 
   cpu_enable_group0_interrupts();

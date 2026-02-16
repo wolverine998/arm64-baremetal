@@ -75,7 +75,7 @@ void seeos_printf(const char *fmt, ...) {
       case 's': {
         char *s = __builtin_va_arg(args, char *);
         if (!s)
-          s = 0;
+          s = "(null)";
         while (*s)
           seeos_putc(*s++);
         break;
@@ -100,7 +100,47 @@ void seeos_printf(const char *fmt, ...) {
         }
         break;
       }
+
+      case 'd': {
+        int64_t val = __builtin_va_arg(args, int64_t);
+        if (val == 0) {
+          seeos_putc('0');
+        } else {
+          if (val < 0) {
+            seeos_putc('-');
+            val = -val;
+          }
+          char buf[20]; // Fits max 64-bit decimal
+          int i = 0;
+          while (val > 0) {
+            buf[i++] = (val % 10) + '0';
+            val /= 10;
+          }
+          while (i > 0)
+            seeos_putc(buf[--i]);
+        }
+        break;
       }
+
+      case 'c': {
+        // Char is promoted to int in variadic arguments
+        char c = (char)__builtin_va_arg(args, int);
+        seeos_putc(c);
+        break;
+      }
+
+      default:
+        seeos_putc('%');
+        seeos_putc(*p);
+        break;
+      }
+    } else {
+      seeos_putc(*p);
     }
   }
+
+  __builtin_va_end(args);
+
+  // 2. Release Lock
+  __atomic_store_n(&_lock, 0, __ATOMIC_RELEASE);
 }

@@ -55,7 +55,7 @@ static inline void timer_set_cval(uint64_t ticks) {
 
 static inline void timer_countdown(uint32_t ms) {
   uint64_t freq = read_sysreg(cntfrq_el0);
-  write_sysreg(cntp_tval_el0, freq * (ms / 1000));
+  write_sysreg(cntp_tval_el0, (freq * ms) / 1000);
 }
 
 #endif

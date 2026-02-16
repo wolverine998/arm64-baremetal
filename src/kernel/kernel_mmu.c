@@ -160,14 +160,15 @@ void seccore_setup_mmu() {
   asm volatile("isb");
 }
 
-void map_page_virtual(uint64_t va, uint64_t pa, uint64_t flags) {
+void map_page_virtual(uint64_t *root, uint64_t va, uint64_t pa,
+                      uint64_t flags) {
   uint64_t va_addr = va & 0xFFFFFFFFULL;
   uint64_t l1_idx = (va_addr >> 30) & 0x1FF;
-  if (!(kernel_l1[l1_idx] & 1)) {
+  if (!(root[l1_idx] & 1)) {
     uint64_t *table = allocate_table();
-    kernel_l1[l1_idx] = VA_TO_PA((uint64_t)table) | PTE_TYPE_TABLE;
+    root[l1_idx] = VA_TO_PA((uint64_t)table) | PTE_TYPE_TABLE;
   }
-  uint64_t *l2 = (uint64_t *)PA_TO_VA(kernel_l1[l1_idx] & ~0xFFFULL);
+  uint64_t *l2 = (uint64_t *)PA_TO_VA(root[l1_idx] & ~0xFFFULL);
 
   uint64_t l2_idx = (va_addr >> 21) & 0x1FF;
   if (!(l2[l2_idx] & 1)) {
@@ -182,12 +183,12 @@ void map_page_virtual(uint64_t va, uint64_t pa, uint64_t flags) {
   l3[l3_idx] = (pa & ~0xFFFULL) | flags | PTE_TYPE_PAGE;
 }
 
-void map_region_virtual(uint64_t va_start, uint64_t pa_start, uint64_t size,
-                        uint64_t flags) {
+void map_region_virtual(uint64_t *root, uint64_t va_start, uint64_t pa_start,
+                        uint64_t size, uint64_t flags) {
   uint64_t va = va_start & ~0xFFFULL;
   uint64_t pa = pa_start & ~0xFFFULL;
   for (int i = 0; i < size; i += 4096) {
-    map_page_virtual(va + i, pa + i, flags);
+    map_page_virtual(root, va + i, pa + i, flags);
   }
 }
 
