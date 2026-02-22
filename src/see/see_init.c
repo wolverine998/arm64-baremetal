@@ -1,8 +1,16 @@
+#include "../../include/gic-v3.h"
+#include "../../include/irq.h"
 #include "../../include/mmu.h"
 #include "../../include/smc.h"
 #include "../../include/uart.h"
 
 volatile uint32_t seeos_mmu_ready = 0;
+
+uint32_t seeos_doorbell() {
+  seeos_printf("[SEEOS] Device signaling interrupt ID %d\n", SPI_RESERVED_1);
+  gic_el3_set_spi_pending(SPI_RESERVED_1);
+  return SEEOS_SUCCESS;
+}
 
 void seeos_servicer(uint64_t fun_id, uint64_t arg1, uint64_t arg2) {
   smc_res_t res;
@@ -17,6 +25,9 @@ void seeos_servicer(uint64_t fun_id, uint64_t arg1, uint64_t arg2) {
     switch (res.function_id) {
     case SEEOS_VERSION:
       r1 = 0x10000;
+      break;
+    case SEEOS_DOORBELL:
+      r1 = seeos_doorbell();
       break;
     default:
       r1 = SEEOS_INVALID_CALL;

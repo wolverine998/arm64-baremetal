@@ -2,7 +2,6 @@
 #include "../../include/generic_timer.h"
 #include "../../include/gic-v3.h"
 #include "../../include/irq.h"
-#include "../../include/kernel_gicv3.h"
 #include "../../include/kernel_mmu.h"
 #include "../../include/kernel_sched.h"
 #include "../../include/mmu.h"
@@ -51,7 +50,12 @@ void test_stack_execution() {
 
 void task1() {
   task_t *task = get_current_task();
-  kernel_printf("Task %d done\n", task->task_id);
+  kernel_printf("Task %d finished\n", task->task_id);
+}
+
+void task2() {
+  task_t *task = get_current_task();
+  kernel_printf("Task %d finished\n", task->task_id);
 }
 
 void c_entry() {
@@ -73,7 +77,7 @@ void c_entry() {
   smc_call(PSCI_CPU_ON, &res, 1, VA_TO_PA(_kernel_entry), 0, 0, 0);
 
   create_task(task1);
-  create_task(task1);
+  create_task(task2);
 
   uint64_t *l1 = (uint64_t *)user_l1;
   uint64_t k_start = (uint64_t)_kernel_start;

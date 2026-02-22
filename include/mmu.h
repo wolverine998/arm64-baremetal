@@ -150,7 +150,9 @@ static inline void disable_mmu_el1() {
   asm volatile("dsb ish");
   asm volatile("isb");
 }
-
+/* Flush EL1 cached entries in mmu table.
+ * Broadcasted to all PE's in Inner Domain
+ */
 static inline void tlb_flush_all_e1() {
   asm volatile("dsb ishst\n"
                "tlbi vmalle1is\n"

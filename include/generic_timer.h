@@ -12,6 +12,13 @@
 #define CNTP_CTL_EL0_IMASK (1 << 1)
 #define CNTP_CTL_EL0_ISTATUS (1 << 2)
 
+static inline uint64_t get_system_time() {
+  uint64_t freq = read_sysreg(cntfrq_el0);
+  uint64_t count = read_sysreg(cntpct_el0);
+
+  return (count * 1000ULL) / freq;
+}
+
 static inline void timer_enable() {
   uint32_t val = read_sysreg(cntp_ctl_el0);
   val |= CNTP_CTL_EL0_ENABLE;

@@ -19,7 +19,7 @@ void main() {
 
   mask_interrupts(0);
 
-  uint64_t scr = RW_AARCH64 | FIQ_ROUTE | NS;
+  uint64_t scr = RW_AARCH64 | FIQ_ROUTE | EA_ROUTE | NS;
   write_sysreg(scr_el3, scr);
 
   uint64_t spsr = SPSR_M_EL1H;
@@ -41,7 +41,7 @@ void init_sec_core(int core_id) {
   uint32_t mask = SERROR | IRQ | DEBUG;
   write_sysreg(daif, mask);
 
-  uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
+  uint64_t scr = RW_AARCH64 | FIQ_ROUTE | EA_ROUTE;
   write_sysreg(scr_el3, scr);
 
   gic_disable_redistributor(GET_GICR_BASE(core_id));

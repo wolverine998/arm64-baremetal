@@ -8,6 +8,7 @@
 
 static queue_t ready_q = {ZERO, ZERO};
 static queue_t zombie_q = {ZERO, ZERO};
+static queue_t sleep_q = {ZERO, ZERO};
 
 static task_t task_pool[MAX_TASKS];
 static task_t idle_tasks[2];
@@ -153,11 +154,22 @@ task_t *schedule_task(trap_frame_t *frame) {
   uint32_t core_id = get_core_id();
   task_t *idle = &idle_tasks[core_id];
 
-  if (current->state == TASK_ZOMBIE) {
+  switch (current->state) {
+  case TASK_ZOMBIE: {
     task_enqueue(&zombie_q, current);
-  } else if (current != idle) {
-    current->state = TASK_READY;
-    task_enqueue(&ready_q, current);
+    break;
+  }
+  case TASK_SLEEPING:
+    break;
+  case TASK_RUNNING: {
+    if (current != idle) {
+      current->state = TASK_READY;
+      task_enqueue(&ready_q, current);
+    }
+    break;
+  }
+  default:
+    break;
   }
 
   task_t *next = task_dequeue(&ready_q);
@@ -196,7 +208,7 @@ void sched_enable() {
    * Later, we will change it to a reasonable value
    * for the scheduler
    */
-  timer_countdown(1000);
+  timer_countdown(SCHEDULER_TICK);
   timer_enable_interrupts();
   timer_enable();
 }
@@ -218,14 +230,63 @@ void reaper_service() {
   // stall the cpu too much
   spin_lock(&sched_lock);
 
-  task_t *z = task_dequeue(&zombie_q);
+  queue_t zombies = {ZERO, ZERO};
+  task_t *z;
 
-  while (z != ZERO && z->core_id == 0xFF) {
-    kernel_printf("[REAPER] Cleaning task %d\n", z->task_id);
-    mm_free_pages((void *)z->stack_base, TASK_STACK_SIZE / PAGE_SIZE);
-    mem_zero(z, sizeof(task_t));
-    z = task_dequeue(&zombie_q);
+  while ((z = task_dequeue(&zombie_q)) != ZERO) {
+    if (z->core_id == 0xFF) {
+      kernel_printf("[REAPER] Cleaning task %d\n", z->task_id);
+      mm_free_pages((void *)z->stack_base, TASK_STACK_SIZE / PAGE_SIZE);
+      mem_zero(z, sizeof(task_t));
+    } else {
+      task_enqueue(&zombies, z);
+    }
   }
 
+  zombie_q = zombies;
+
   spin_unlock(&sched_lock);
+}
+
+/* This function iterates over sleep queue,
+ * compares current time with the wake_tick time
+ * and moves the task into ready queue if now > wake_tick.
+ */
+void sched_check_tasks() {
+  spin_lock(&sched_lock);
+
+  uint64_t now = get_system_time();
+
+  queue_t sleeping = {ZERO, ZERO};
+  task_t *t;
+
+  while ((t = task_dequeue(&sleep_q)) != ZERO) {
+    if (now >= t->wake_tick) {
+      t->state = TASK_READY;
+      task_enqueue(&ready_q, t);
+    } else {
+      task_enqueue(&sleeping, t);
+    }
+  }
+
+  sleep_q = sleeping;
+  spin_unlock(&sched_lock);
+}
+
+/* Yield control to scheduler and mark current task
+ * sleeping. The scheduler will skip sleeping tasks
+ * until the time specified in ms has passed.
+ */
+void msleep(uint32_t ms) {
+  task_t *current = get_current_task();
+
+  spin_lock(&sched_lock);
+
+  current->wake_tick = get_system_time() + ms;
+  current->state = TASK_SLEEPING;
+  task_enqueue(&sleep_q, current);
+
+  spin_unlock(&sched_lock);
+
+  yield();
 }

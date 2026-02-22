@@ -1,6 +1,6 @@
 #/bin/bash
 GIC=3
-CPU=cortex-a55
+CPU=cortex-a76
 RAM=512M
 IMAGE=monitor.elf
 SMP=2

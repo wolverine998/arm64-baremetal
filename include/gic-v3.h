@@ -78,6 +78,11 @@
 #define INTERRUPT_BIT_POSITION(intid) (intid % 32)
 #define ICC_SGI_IRM (1ULL << 40)
 
+// reserved intids
+#define INTERRUPT_HPI_SG1 1020
+#define INTERRUPT_HPI_NSG1 1021
+#define INTERRUPT_SPURIOUS 1023
+
 static inline void write_gicd(uint64_t offset, uint32_t val) {
   *(volatile uint32_t *)(GICD_BASE + offset) = val;
 }

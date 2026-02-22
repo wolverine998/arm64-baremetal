@@ -66,15 +66,18 @@ trap_frame_t *kernel_irq(trap_frame_t *frame) {
   if (interupt_id != 0) {
     if (interupt_id == CNTP_INTID || interupt_id == SCHEDULER_YIELD) {
       timer_disable_interrupts();
-      timer_countdown(1000);
+      sched_check_tasks();
+      timer_countdown(SCHEDULER_TICK);
       task_t *next = schedule_task(frame);
       if (next != ZERO)
         next_frame = next->frame;
       timer_enable_interrupts();
     } else if (interupt_id == SCHEDULER_GC) {
       reaper_service();
+    } else {
+      kernel_printf("Interrupt ID %d signaled on CPU %d\n", interupt_id,
+                    core_id);
     }
-    kernel_printf("Interrupt ID: %d fired on core %d\n", interupt_id, core_id);
   }
   gic_write_eoir1(iar);
   return next_frame;

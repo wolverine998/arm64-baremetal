@@ -15,7 +15,7 @@ void gic_init_global() {
 
   // unlock interupts for kernel
   for (int i = SPI_RESERVED_1; i <= SPI_RESERVED_3; i++) {
-    gic_el3_conf_spi(i, 0, 1);
+    gic_el3_conf_spi(i, 0xF0, 1);
   }
 }
 

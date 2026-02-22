@@ -1,5 +1,6 @@
 #include "../../include/cpu_state.h"
 #include "../../include/gic-v3.h"
+#include "../../include/gpio.h"
 #include "../../include/irq.h"
 #include "../../include/psci.h"
 
@@ -38,4 +39,26 @@ int psci_fn_cpu_off(uint32_t target_core) {
   send_sgi0_to_core(target_core, SGI_CORE_SLEEP);
 
   return PSCI_SUCCESS;
+}
+
+int psci_fn_system_reset() {
+  gpio_set_direction(GPIO_RESTART, 1);
+
+  /* Restart the board.
+   * Setting the corresponding pin to 1
+   * forces the hardware reset.
+   * We must disable the GIC from
+   * signaling interrupts completelly
+   * before reseting the board
+   */
+  write_gicd(GICD_CTLR, 0);
+
+  /* Wait for distributor to notify us
+   * that the changes are propagated upstream
+   */
+  while (read_gicd(GICD_CTLR) & GICD_CTLR_RWP)
+    ;
+  gpio_set_high(GPIO_RESTART);
+
+  return PSCI_ERR_BADDRESS; // this should never return
 }

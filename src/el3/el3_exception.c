@@ -39,12 +39,37 @@ void el3_cpu_off(uint32_t target_core) {
   }
 }
 
-void el3_seeos_jump(trap_frame_t *frame) {
-  uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
+void el3_cpu_on(uint32_t core_id, trap_frame_t *frame) {
+  if (cpus[core_id].entry_point != 0) {
+    gic_enable_redistributor(GET_GICR_BASE(core_id));
+    uint64_t scr = RW_AARCH64 | FIQ_ROUTE | EA_ROUTE | NS;
+    write_sysreg(scr_el3, scr);
+
+    frame->spsr = SPSR_M_EL1H;
+    frame->elr = cpus[core_id].entry_point;
+    cpus[core_id].state = ON;
+  }
+}
+
+void el3_jump_to_kernel(uint32_t core_id, trap_frame_t *frame) {
+  // save previous context, the frame points to seeos
+  cpus[core_id].s_context.elr = frame->elr;
+  save_context(&cpus[core_id].s_context);
+  for (int i = 19; i <= 30; i++) {
+    cpus[core_id].s_context.regs[i] = frame->regs[i];
+  }
+
+  uint64_t scr = RW_AARCH64 | FIQ_ROUTE | EA_ROUTE | NS;
+  restore_context(&cpus[core_id].ns_context);
+  for (int i = 19; i <= 30; i++) {
+    frame->regs[i] = cpus[core_id].ns_context.regs[i];
+  }
+  frame->regs[0] = SEEOS_PREEMPTED;
   write_sysreg(scr_el3, scr);
-  write_sysreg(spsr_el3, SPSR_M_EL1H);
-  write_sysreg(elr_el3, (uint64_t)_seeos_entry);
-  asm volatile("isb; eret");
+  frame->spsr = SPSR_M_EL1H;
+  frame->elr = cpus[core_id].ns_context.elr;
+
+  write_sysreg(scr_el3, scr);
 }
 
 void el3_sync(trap_frame_t *frame) {
@@ -75,7 +100,7 @@ void el3_sync_lower(trap_frame_t *frame) {
       for (int i = 19; i <= 30; i++) {
         cpus[core_id].ns_context.regs[i] = frame->regs[i];
       }
-      uint64_t scr = RW_AARCH64 | FIQ_ROUTE;
+      uint64_t scr = RW_AARCH64 | FIQ_ROUTE | EA_ROUTE;
 
       if (cpus[core_id].s_context.initialized) {
         restore_context(&cpus[core_id].s_context);
@@ -108,19 +133,17 @@ void el3_fiq(trap_frame_t *frame) {
   uint32_t interrupt_id = INTERRUPT_ID_MASK(iar);
   uint64_t core_id = get_core_id();
 
-  if (interrupt_id == SGI_CORE_WAKE) {
-    if (cpus[core_id].entry_point != 0) {
-      gic_enable_redistributor(GET_GICR_BASE(core_id));
-      uint64_t scr = RW_AARCH64 | FIQ_ROUTE | NS;
-      write_sysreg(scr_el3, scr);
-
-      frame->spsr = SPSR_M_EL1H;
-      frame->elr = cpus[core_id].entry_point;
-      cpus[core_id].state = ON;
-    }
-  } else if (interrupt_id == SGI_CORE_SLEEP) {
-    // just jump to sleep function
+  switch (interrupt_id) {
+  case SGI_CORE_WAKE:
+    el3_cpu_on(core_id, frame);
+    break;
+  case SGI_CORE_SLEEP:
     el3_cpu_off(core_id);
+    break;
+  case INTERRUPT_HPI_NSG1:
+    el3_jump_to_kernel(core_id, frame);
+    break;
   }
+
   gic_write_eoir0(iar);
 }

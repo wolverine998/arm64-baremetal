@@ -14,7 +14,7 @@ typedef struct {
 } smc_res_t;
 
 /* Upper 16 bits - World ID, Lower 16 bits - Function ID
- * World ID - 0x1000(SEEOS) - 0x2000(FIRMWARE)
+ * World ID(31:16) - 0x1000(SEEOS) - 0x2000(FIRMWARE)
  * Function ID - Specific function tied to the World ID */
 #define FIRMWARE_WORLD_ID 0x2000
 #define SEEOS_WORLD_ID 0x1000
@@ -22,12 +22,17 @@ typedef struct {
 // firmware function id's
 #define SMC_VERSION 0x20000010
 #define SMC_YIELD 0x20000020
+#define SMC_RESUME 0x20000030
 
+// seeos functions
 #define SEEOS_VERSION 0x10000010
+#define SEEOS_DOORBELL 0x10000020
+
 // state macros
 #define SEEOS_INITIALIZED 0x01
 #define SEEOS_INVALID_CALL 0x02
 #define SEEOS_SUCCESS 0x04
+#define SEEOS_PREEMPTED 0x06
 
 extern volatile uint32_t core_ready[8];
 
