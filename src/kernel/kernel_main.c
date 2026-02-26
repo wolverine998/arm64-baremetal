@@ -76,9 +76,6 @@ void c_entry() {
   smc_call(SEEOS_VERSION, &res, 0, 0, 0, 0, 0);
   smc_call(PSCI_CPU_ON, &res, 1, VA_TO_PA(_kernel_entry), 0, 0, 0);
 
-  create_task(task1);
-  create_task(task2);
-
   uint64_t *l1 = (uint64_t *)user_l1;
   uint64_t k_start = (uint64_t)_kernel_start;
   uint64_t k_end = (uint64_t)_kernel_stack;
@@ -94,6 +91,18 @@ void c_entry() {
   tlb_flush_all_e1();
   map_region_virtual(l1, start, start, end - start,
                      PROT_NORMAL_MEM | AP_EL0_RW_ELX_RW | PTE_PXN);
+
+  uint64_t key = 0xDEADBEEFCAFEAFFE;
+  smc_call(SEEOS_WRAP_KEY, &res, key, 0, 0, 0, 0);
+
+  uint64_t wrapped = res.res1;
+  uint64_t padding = res.res2;
+  kernel_printf("Wrapped: %x, Padding: %x\n", wrapped, padding);
+
+  smc_call(SEEOS_UNWRAP_KEY, &res, wrapped, padding, 0, 0, 0);
+
+  uint64_t result = res.res1;
+  kernel_printf("Key decrypted: %x\n", result);
 
   uint64_t spsr = SPSR_M_EL0;
   write_sysreg(spsr_el1, spsr);

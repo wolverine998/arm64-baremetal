@@ -12,6 +12,7 @@ void main() {
   setup_mmu();
   gic_init_global();
   gic_init_core(0);
+  write_sysreg(cntfrq_el0, 65000000);
 
   cpus[0].state = ON;
 
@@ -35,6 +36,8 @@ void main() {
 void init_sec_core(int core_id) {
   setup_mmu_secondary();
   gic_init_core(core_id);
+  write_sysreg(cntfrq_el0, 65000000);
+
   cpus[core_id].state = ON;
 
   // unmask fiq

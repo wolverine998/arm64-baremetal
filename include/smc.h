@@ -27,6 +27,9 @@ typedef struct {
 // seeos functions
 #define SEEOS_VERSION 0x10000010
 #define SEEOS_DOORBELL 0x10000020
+#define SEEOS_WRAP_KEY 0x10000030
+#define SEEOS_UNWRAP_KEY 0x10000040
+#define SEEOS_COMMAND 0x10000050
 
 // state macros
 #define SEEOS_INITIALIZED 0x01
