@@ -48,7 +48,8 @@ void map_block_range(uint64_t start, uint64_t size, uint64_t flags) {
 
 void setup_mmu(void) {
   // 1. MAIR: Index 0=Device, Index 1=Normal
-  uint64_t mair = MAIR_DEVICE_NGNRNE | MAIR_RAM | MAIR_DEVICE_NGNRE;
+  uint64_t mair =
+      MAIR_DEVICE_NGNRNE | MAIR_RAM | MAIR_DEVICE_NGNRE | MAIR_NORMAL_NC;
   write_sysreg(MAIR_EL3, mair);
   write_sysreg(MAIR_EL1, mair);
 

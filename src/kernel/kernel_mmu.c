@@ -2,6 +2,7 @@
 #include "../../include/gic-v3.h"
 #include "../../include/mmu.h"
 #include "../../include/registers.h"
+#include "../../include/see_cmd.h"
 #include "../../include/uart.h"
 #include <stdint.h>
 
@@ -108,6 +109,10 @@ void kernel_setup_mmu() {
              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
   map_region(kernel_l1, GITS_VIRT_BASE, GITS_BASE, 0x20000,
              PROT_DEVICE | PTE_UXN | PTE_PXN | AP_EL0_NO_ELX_RW);
+
+  // 5. Map SEEOS shared region
+  map_region(user_l1, SMEM_BUFFER, SMEM_BUFFER, 0x200000,
+             PROT_NORMAL_NC | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_PXN);
 
   // Ensure TCR matches your 4KB granule and 32-bit (4GB) address space
   uint64_t tcr = TCR_EL1_T0SZ0_32 | // T0SZ: 32 bits (4GB)

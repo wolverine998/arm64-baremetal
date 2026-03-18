@@ -1,6 +1,7 @@
 #include "../../include/gic-v3.h"
 #include "../../include/irq.h"
 #include "../../include/mmu.h"
+#include "../../include/see_cmd.h"
 #include "../../include/see_crypto.h"
 #include "../../include/smc.h"
 #include "../../include/uart.h"
@@ -47,6 +48,10 @@ void seeos_servicer(uint64_t fun_id, uint64_t arg1, uint64_t arg2,
     case SEEOS_UNWRAP_KEY: {
       wrapped_key_t key = {res.res1, res.res2};
       r1 = see_unwrap_key(key);
+      break;
+    }
+    case SEEOS_COMMAND: {
+      see_cmd_invoke();
       break;
     }
     default:

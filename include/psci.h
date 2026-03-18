@@ -7,6 +7,7 @@
 #define PSCI_CPU_OFF 0x200000B0
 #define PSCI_CPU_SUSPEND 0x200000C0
 #define PSCI_SYSTEM_RESET 0x200000D0
+#define PSCI_SYSTEM_POWEROFF 0x200000E0
 
 #define PSCI_SUCCESS 0
 #define PSCI_ERR_BADDRESS 1
@@ -22,5 +23,6 @@
 int psci_fn_cpu_on(uint32_t target_core, uint64_t entry_point);
 int psci_fn_cpu_off(uint32_t target_core);
 int psci_fn_system_reset();
+int psci_fn_system_poweroff();
 
 #endif //

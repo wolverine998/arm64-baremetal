@@ -29,9 +29,11 @@
 #define ATTR_I_DEVICE_NGNRNE 0
 #define ATTR_I_NORMAL 1
 #define ATTR_I_DEVICE_NGNRE 2
+#define ATTR_I_NORMAL_NC 3
 
 // --- Memory Prot Settings ---
 #define PROT_NORMAL_MEM (PTE_AF | PTE_SH_INNER | PTE_ATTR_INDX(ATTR_I_NORMAL))
+#define PROT_NORMAL_NC (PTE_AF | PTE_SH_INNER | PTE_ATTR_INDX(ATTR_I_NORMAL_NC))
 #define PROT_DEVICE                                                            \
   (PTE_AF | PTE_SH_OUTER | PTE_ATTR_INDX(ATTR_I_DEVICE_NGNRNE))
 #define PROT_DEVICE_NGNRE                                                      \
@@ -93,6 +95,7 @@
 #define MAIR_DEVICE_NGNRNE (0x00ULL << 0)
 #define MAIR_RAM (0xFFULL << 8)
 #define MAIR_DEVICE_NGNRE (0x04ULL << 16)
+#define MAIR_NORMAL_NC (0x44ULL << 24)
 
 // --- Address Map ---
 #define RAM_BASE 0x40000000ULL

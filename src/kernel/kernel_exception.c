@@ -1,8 +1,8 @@
 #include "../../include/generic_timer.h"
 #include "../../include/gic-v3.h"
-#include "../../include/kernel_gicv3.h"
 #include "../../include/kernel_sched.h"
 #include "../../include/registers.h"
+#include "../../include/smc.h"
 #include "../../include/syscall.h"
 #include "../../include/trap_frame.h"
 #include "../../include/uart.h"
@@ -14,9 +14,8 @@ void kernel_panic(trap_frame_t *frame, const char *msg) {
   kernel_printf("[KERNEL] FAR: %x ELR: %x ESR: %x\n", frame->far, frame->elr,
                 frame->esr);
 
-  while (1) {
-    wait_for_interrupt();
-  }
+  smc_res_t res;
+  smc_call(PSCI_SYSTEM_POWEROFF, &res, 0, 0, 0, 0, 0);
 }
 
 void kernel_sync_elx(trap_frame_t *frame) {

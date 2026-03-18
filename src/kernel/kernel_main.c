@@ -1,7 +1,7 @@
 #include "../../include/cpu_state.h"
-#include "../../include/generic_timer.h"
 #include "../../include/gic-v3.h"
 #include "../../include/irq.h"
+#include "../../include/kernel_gicv3.h"
 #include "../../include/kernel_mmu.h"
 #include "../../include/kernel_sched.h"
 #include "../../include/mmu.h"
@@ -92,18 +92,6 @@ void c_entry() {
   map_region_virtual(l1, start, start, end - start,
                      PROT_NORMAL_MEM | AP_EL0_RW_ELX_RW | PTE_PXN);
 
-  uint64_t key = 0xDEADBEEFCAFEAFFE;
-  smc_call(SEEOS_WRAP_KEY, &res, key, 0, 0, 0, 0);
-
-  uint64_t wrapped = res.res1;
-  uint64_t padding = res.res2;
-  kernel_printf("Wrapped: %x, Padding: %x\n", wrapped, padding);
-
-  smc_call(SEEOS_UNWRAP_KEY, &res, wrapped, padding, 0, 0, 0);
-
-  uint64_t result = res.res1;
-  kernel_printf("Key decrypted: %x\n", result);
-
   uint64_t spsr = SPSR_M_EL0;
   write_sysreg(spsr_el1, spsr);
   write_sysreg(sp_el0, end);
@@ -123,6 +111,9 @@ void sec_entry() {
   kernel_printf("Core %d booted successfully\n", core_id);
 
   k_cpus[core_id] = ON;
+
+  asm volatile("dmb ish");
+  asm volatile("sev");
 
   while (1) {
     wait_for_interrupt();

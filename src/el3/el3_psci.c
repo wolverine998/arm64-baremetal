@@ -60,5 +60,18 @@ int psci_fn_system_reset() {
     ;
   gpio_set_high(GPIO_RESTART);
 
-  return PSCI_ERR_BADDRESS; // this should never return
+  return PSCI_SUCCESS; // this should never return
+}
+
+int psci_fn_system_poweroff() {
+  gpio_set_direction(GPIO_POWEROFF, 1);
+
+  write_gicd(GICD_CTLR, 0);
+
+  while (read_gicd(GICD_CTLR) & GICD_CTLR_RWP)
+    ;
+
+  gpio_set_high(GPIO_POWEROFF);
+
+  return PSCI_SUCCESS;
 }

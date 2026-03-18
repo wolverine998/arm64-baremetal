@@ -1,6 +1,7 @@
 #include "../../include/gic-v3.h"
 #include "../../include/mmu.h"
 #include "../../include/registers.h"
+#include "../../include/see_cmd.h"
 #include "../../include/uart.h"
 #include <stdint.h>
 
@@ -29,6 +30,10 @@ void seeos_init_mmu_global(void) {
     seeos_l2_ram[l2_indx] =
         addr | PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_TYPE_BLOCK;
   }
+
+  seeos_l2_ram[(SMEM_BUFFER >> 21) & 0x1FF] = SMEM_BUFFER | PROT_NORMAL_NC |
+                                              AP_EL0_NO_ELX_RW | PTE_UXN |
+                                              PTE_PXN | PTE_NS | PTE_TYPE_BLOCK;
 
   // 6. Map Device I/O (UART and GIC)
   seeos_l2_low[(SECURE_UART1 >> 21) & 0x1FF] =

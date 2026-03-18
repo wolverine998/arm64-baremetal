@@ -22,6 +22,10 @@ void el3_smc_handler(trap_frame_t *frame, uint64_t fun_id) {
     frame->regs[1] = psci_fn_system_reset();
     break;
   }
+  case PSCI_SYSTEM_POWEROFF: {
+    frame->regs[1] = psci_fn_system_poweroff();
+    break;
+  }
   case SMC_YIELD: {
     uint32_t core_id = get_core_id();
     save_context(&cpus[core_id].s_context);
