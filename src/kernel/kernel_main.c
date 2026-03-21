@@ -60,8 +60,12 @@ void task2() {
 
 void kernel_main_thread() {
   smc_res_t res;
-  smc_call(SEEOS_VERSION, &res, 0, 0, 0, 0, 0);
   smc_call(PSCI_CPU_ON, &res, 1, VA_TO_PA(_kernel_entry), 0, 0, 0);
+
+  smc_call(SEEOS_VERSION, &res, 0, 0, 0, 0, 0);
+  uint8_t major = (res.res1 >> 8) & 0xFF;
+  uint8_t minor = res.res1 & 0xFF;
+  kernel_printf("SEEOS reported version: Major: %d, Minor: %d\n", major, minor);
 
   uint64_t *l1 = (uint64_t *)user_l1;
   uint64_t k_start = (uint64_t)_kernel_start;

@@ -33,9 +33,12 @@ void seeos_servicer(uint64_t fun_id, uint64_t arg1, uint64_t arg2,
     uint64_t r3 = 0;
 
     switch (res.function_id) {
-    case SEEOS_VERSION:
-      r1 = 0x10000;
+    case SEEOS_VERSION: {
+      uint8_t major = 1;
+      uint8_t minor = 20;
+      r1 = (major << 8) | minor;
       break;
+    }
     case SEEOS_DOORBELL:
       r1 = seeos_doorbell();
       break;

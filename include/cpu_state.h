@@ -19,6 +19,10 @@ typedef struct {
   uint64_t sctlr;
   uint64_t elr;
   uint8_t initialized;
+
+  uint64_t vregs[32][2] __attribute__((aligned(16)));
+  uint32_t fpsr;
+  uint32_t fpcr;
 } context_t;
 
 typedef struct {

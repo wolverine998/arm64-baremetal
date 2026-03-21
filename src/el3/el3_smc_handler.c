@@ -29,14 +29,27 @@ void el3_smc_handler(trap_frame_t *frame, uint64_t fun_id) {
   case SMC_YIELD: {
     uint32_t core_id = get_core_id();
     save_context(&cpus[core_id].s_context);
-    for (int i = 19; i <= 30; i++) {
+    for (int i = 6; i < 31; i++) {
       cpus[core_id].s_context.regs[i] = frame->regs[i];
     }
+    for (int i = 0; i < 32; i++) {
+      cpus[core_id].s_context.vregs[i][0] = frame->vregs[i][0];
+      cpus[core_id].s_context.vregs[i][1] = frame->vregs[i][1];
+    }
+
+    cpus[core_id].s_context.fpsr = frame->fpsr;
+    cpus[core_id].s_context.fpcr = frame->fpcr;
     cpus[core_id].s_context.elr = frame->elr;
     restore_context(&cpus[core_id].ns_context);
-    for (int i = 19; i <= 30; i++) {
+    for (int i = 6; i < 31; i++) {
       frame->regs[i] = cpus[core_id].ns_context.regs[i];
     }
+    for (int i = 0; i < 32; i++) {
+      frame->vregs[i][0] = cpus[core_id].ns_context.vregs[i][0];
+      frame->vregs[i][1] = cpus[core_id].ns_context.vregs[i][1];
+    }
+    frame->fpsr = cpus[core_id].ns_context.fpsr;
+    frame->fpcr = cpus[core_id].ns_context.fpcr;
     uint64_t scr = RW_AARCH64 | FIQ_ROUTE | EA_ROUTE | NS;
     write_sysreg(scr_el3, scr);
     frame->spsr = SPSR_M_EL1H;
@@ -46,9 +59,15 @@ void el3_smc_handler(trap_frame_t *frame, uint64_t fun_id) {
   case SMC_RESUME: {
     uint32_t core_id = get_core_id();
     restore_context(&cpus[core_id].s_context);
-    for (int i = 19; i <= 30; i++) {
+    for (int i = 6; i < 31; i++) {
       frame->regs[i] = cpus[core_id].s_context.regs[i];
     }
+    for (int i = 0; i < 32; i++) {
+      frame->vregs[i][0] = cpus[core_id].s_context.vregs[i][0];
+      frame->vregs[i][1] = cpus[core_id].s_context.vregs[i][1];
+    }
+    frame->fpsr = cpus[core_id].s_context.fpsr;
+    frame->fpcr = cpus[core_id].s_context.fpcr;
     uint64_t scr = RW_AARCH64 | FIQ_ROUTE | EA_ROUTE;
     write_sysreg(scr_el3, scr);
     frame->spsr = SPSR_M_EL1H;
