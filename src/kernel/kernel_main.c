@@ -58,20 +58,7 @@ void task2() {
   kernel_printf("Task %d finished\n", task->task_id);
 }
 
-void c_entry() {
-  k_cpus[0] = ON;
-  kernel_puts("Kernel booted successfully\n");
-  initialize_memory_info();
-  gic_enable_sre_el1();
-  gic_el1_init_spi();
-  cpu_enable_group1_interrupts();
-  cpu_set_priority_mask(255);
-
-  init_sched();
-  sched_enable();
-
-  mask_interrupts(0);
-
+void kernel_main_thread() {
   smc_res_t res;
   smc_call(SEEOS_VERSION, &res, 0, 0, 0, 0, 0);
   smc_call(PSCI_CPU_ON, &res, 1, VA_TO_PA(_kernel_entry), 0, 0, 0);
@@ -98,6 +85,28 @@ void c_entry() {
   write_sysreg(elr_el1, start);
 
   asm volatile("isb; eret");
+}
+
+void c_entry() {
+  k_cpus[0] = ON;
+  kernel_puts("Kernel booted successfully\n");
+  initialize_memory_info();
+  gic_enable_sre_el1();
+  gic_el1_init_spi();
+  cpu_enable_group1_interrupts();
+  cpu_set_priority_mask(255);
+
+  init_sched();
+  create_task(kernel_main_thread);
+  create_task(task1);
+  create_task(task2);
+  sched_enable();
+
+  mask_interrupts(0);
+
+  while (1) {
+    wait_for_interrupt();
+  }
 }
 
 void sec_entry() {

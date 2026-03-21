@@ -64,7 +64,7 @@ void el3_jump_to_kernel(uint32_t core_id, trap_frame_t *frame) {
   for (int i = 19; i <= 30; i++) {
     frame->regs[i] = cpus[core_id].ns_context.regs[i];
   }
-  frame->regs[0] = SEEOS_PREEMPTED;
+  frame->regs[1] = SEEOS_PREEMPTED;
   write_sysreg(scr_el3, scr);
   frame->spsr = SPSR_M_EL1H;
   frame->elr = cpus[core_id].ns_context.elr;
