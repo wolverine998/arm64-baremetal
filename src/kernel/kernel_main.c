@@ -8,6 +8,7 @@
 #include "../../include/registers.h"
 #include "../../include/smc.h"
 #include "../../include/uart.h"
+#include "../../include/virtio/virtio_blk.h"
 #include <stdint.h>
 
 extern void _kernel_entry();
@@ -17,6 +18,7 @@ extern void app_entry();
 
 volatile power_state_t k_cpus[MAX_CPUS] = {0};
 meminfo_t meminfo = {0, 0, 0};
+virtio_blk_dev_t blk_dev;
 
 void initialize_memory_info(void) {
   uint64_t kernel_end_pa = VA_TO_PA((uint64_t)_kernel_end);
@@ -99,6 +101,20 @@ void c_entry() {
   gic_el1_init_spi();
   cpu_enable_group1_interrupts();
   cpu_set_priority_mask(255);
+
+  map_region_virtual(kernel_l1, PA_TO_VA(VIRTIO_BLK_ADDRESS),
+                     VIRTIO_BLK_ADDRESS, 0x1000,
+                     PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_PXN | PTE_UXN);
+  int result = virtio_blk_init(&blk_dev);
+  if (result == VIRTIO_OK)
+    kernel_printf("Virtio Block device initialized\n");
+
+  // try to read sector 0
+  char buf[512];
+  result = virtio_blk_read_sector(&blk_dev, 0, buf);
+
+  if (result == VIRTIO_OK)
+    kernel_printf("Buffer: %s", buf);
 
   init_sched();
   create_task(kernel_main_thread);
