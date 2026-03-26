@@ -11,6 +11,8 @@
 #define VIRTIO_BLK_ADDRESS 0x0A000000
 #define VIRTIO_REG_MAGIC 0x00
 #define VIRTIO_REG_VERSION 0x04
+#define VIRTIO_REG_HOST_FEATURES 0x10
+#define VIRTIO_REG_HOST_FEATURES_SEL 0x14
 #define VIRTIO_REG_DEVICE_ID 0x08
 #define VIRTIO_REG_PAGE_SIZE 0x28
 #define VIRTIO_REG_QUEUE_SEL 0x30
@@ -19,6 +21,8 @@
 #define VIRTIO_REG_QUEUE_PFN 0x40
 #define VIRTIO_REG_QUEUE_READY 0x44
 #define VIRTIO_REG_QUEUE_NOTIFY 0x50
+#define VIRTIO_REG_INTERRUPT_STATUS 0x60
+#define VIRTIO_REG_INTERRUPT_ACK 0x64
 #define VIRTIO_REG_DEVICE_STATUS 0x70
 #define VIRTIO_REG_DEVICE_CONFIG 0x100
 #define VIRTIO_STATUS_ACK 1
@@ -29,6 +33,21 @@
 #define VIRTIO_AVAIL_F_NO_INTERRUPT 1
 #define VIRTIO_BLK_T_IN 0
 #define VIRTIO_BLK_T_OUT 1
+
+// Virtio Blk Host Feature Bits
+#define VIRTIO_BLK_F_BARRIER 0
+#define VIRTIO_BLK_F_SIZE_MAX 1
+#define VIRTIO_BLK_F_SEG_MAX 2
+#define VIRTIO_BLK_F_GEOMETRY 4
+#define VIRTIO_BLK_F_RO 5
+#define VIRTIO_BLK_F_BLK_SIZE 6
+#define VIRTIO_BLK_F_SCSI 7
+#define VIRTIO_BLK_F_FLUSH 9
+
+// Virtio Blk Status Code
+#define VIRTIO_BLK_S_OK 0
+#define VIRTIO_BLK_S_IOERR 1
+#define VIRTIO_BLK_S_UNSUPP 2
 
 // Result codes
 #define VIRTIO_OK 0
@@ -77,11 +96,26 @@ struct virtio_blk_req {
   uint8_t status;
 } __attribute__((packed));
 
+struct virtio_blk_geometry {
+  uint16_t cylinders;
+  uint8_t heads;
+  uint8_t sectors;
+} __attribute__((packed));
+
+struct virtio_blk_config {
+  uint64_t capacity;
+  uint32_t size_max;
+  uint32_t seg_max;
+  struct virtio_blk_geometry geometry;
+  uint32_t blk_size;
+} __attribute__((packed));
+
 typedef struct {
   uint64_t base;
   struct virtio_virtq *vring;
   uint32_t actual_q_size;
   uint16_t last_used_idx;
+  struct virtio_blk_config *config;
 } virtio_blk_dev_t;
 
 // MMIO read/write helpers
@@ -101,7 +135,9 @@ static inline void virtio_write64(uint64_t offset, uint64_t value) {
   *((volatile uint64_t *)(PA_TO_VA(VIRTIO_BLK_ADDRESS) + offset)) = value;
 }
 
+// Device driver functions
 int virtio_blk_init(virtio_blk_dev_t *dev);
 int virtio_blk_read_sector(virtio_blk_dev_t *dev, uint64_t sector, void *buf);
+void virtio_blk_get_info(virtio_blk_dev_t *dev);
 
 #endif

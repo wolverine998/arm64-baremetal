@@ -102,18 +102,17 @@ void c_entry() {
   cpu_enable_group1_interrupts();
   cpu_set_priority_mask(255);
 
-  map_region_virtual(kernel_l1, PA_TO_VA(VIRTIO_BLK_ADDRESS),
-                     VIRTIO_BLK_ADDRESS, 0x1000,
-                     PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_PXN | PTE_UXN);
   int result = virtio_blk_init(&blk_dev);
   if (result == VIRTIO_OK)
-    kernel_printf("Virtio Block device initialized\n");
+    kernel_printf("[KERNEL] Virtio block device initialized\n");
+
+  virtio_blk_get_info(&blk_dev);
 
   // try to read sector 0
   char buf[512];
   result = virtio_blk_read_sector(&blk_dev, 0, buf);
 
-  if (result == VIRTIO_OK)
+  if (result == VIRTIO_BLK_S_OK)
     kernel_printf("Buffer: %s", buf);
 
   init_sched();
