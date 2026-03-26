@@ -1,53 +1,81 @@
+#include "../../include/see_mmu.h"
 #include "../../include/gic-v3.h"
 #include "../../include/mmu.h"
 #include "../../include/registers.h"
 #include "../../include/see_cmd.h"
+#include "../../include/stdlib.h"
 #include "../../include/uart.h"
 #include <stdint.h>
 
 __attribute__((aligned(4096))) uint64_t seeos_l1_table[512];
-__attribute__((aligned(4096))) uint64_t seeos_l2_low[512]; // 0GB - 1GB
-__attribute__((aligned(4096))) uint64_t seeos_l2_ram[512]; // 1GB - 2GB
+
+__attribute__((aligned(4096))) uint64_t page_tables[MAX_TABLES][512];
+uint32_t tables_used = 0;
+
+uint64_t *see_alloc_table() {
+  if (tables_used >= MAX_TABLES) {
+    seeos_printf("[SEEOS] Could not allocate page table");
+    return 0;
+  }
+
+  uint64_t *table = page_tables[tables_used++];
+  mem_zero(table, 512);
+
+  return table;
+}
+
+void see_map_page(uint64_t *l1, uint64_t va, uint64_t pa, uint64_t flags) {
+  uint64_t va_addr = va & 0xFFFFFFFFULL;
+
+  uint64_t l1_idx = TLB_L1_INDEX(va_addr);
+
+  if (!(l1[l1_idx] & 1)) {
+    l1[l1_idx] = (uint64_t)see_alloc_table() | PTE_TYPE_TABLE;
+  }
+
+  uint64_t *l2 = (uint64_t *)(l1[l1_idx] & ~0xFFFULL);
+  uint64_t l2_idx = TLB_L2_INDEX(va_addr);
+
+  if (!(l2[l2_idx] & 1)) {
+    l2[l2_idx] = (uint64_t)see_alloc_table() | PTE_TYPE_TABLE;
+  }
+
+  uint64_t *l3 = (uint64_t *)(l2[l2_idx] & ~0xFFFULL);
+  uint64_t l3_idx = TLB_L3_INDEX(va_addr);
+
+  l3[l3_idx] = (pa & ~0xFFFULL) | flags | PTE_TYPE_PAGE;
+}
+
+void see_map_region(uint64_t *l1, uint64_t va_start, uint64_t pa_start,
+                    uint64_t size, uint64_t flags) {
+  uint64_t va = va_start & ~0xFFFULL;
+  uint64_t pa = pa_start & ~0xFFFULL;
+
+  for (int i = 0; i < size; i += 4096) {
+    see_map_page(l1, va + i, pa + i, flags);
+  }
+}
 
 void seeos_init_mmu_global(void) {
   uint64_t start;
   asm volatile("ldr %0, =_seeos_start" : "=r"(start));
-  // 3. Clear Tables
-  for (int i = 0; i < 512; i++) {
-    seeos_l1_table[i] = 0;
-    seeos_l2_low[i] = 0;
-    seeos_l2_ram[i] = 0;
-  }
+  // 3. Clear L1 table
+  mem_zero(seeos_l1_table, 512);
 
-  // 4. Link Tables (Descriptor 0x3 is a Table link)
-  seeos_l1_table[0] = (uint64_t)seeos_l2_low | PTE_TYPE_TABLE;
-  seeos_l1_table[1] = (uint64_t)seeos_l2_ram | PTE_TYPE_TABLE;
+  see_map_region(seeos_l1_table, start, start, 0x300000,
+                 PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW);
 
-  // 5. Map RAM (Identity map 6MB)
-  for (int i = 0; i < 3; i++) {
-    uint64_t addr = start + (i * 0x200000);
-    uint32_t l2_indx = (addr >> 21) & 0x1FF;
-    seeos_l2_ram[l2_indx] =
-        addr | PROT_NORMAL_MEM | AP_EL0_NO_ELX_RW | PTE_TYPE_BLOCK;
-  }
+  see_map_page(seeos_l1_table, SMEM_BUFFER, SMEM_BUFFER,
+               PROT_NORMAL_NC | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_PXN | PTE_NS);
 
-  seeos_l2_ram[(SMEM_BUFFER >> 21) & 0x1FF] = SMEM_BUFFER | PROT_NORMAL_NC |
-                                              AP_EL0_NO_ELX_RW | PTE_UXN |
-                                              PTE_PXN | PTE_NS | PTE_TYPE_BLOCK;
+  see_map_page(seeos_l1_table, SECURE_UART1, SECURE_UART1,
+               PROT_DEVICE_NGNRE | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_PXN);
 
-  // 6. Map Device I/O (UART and GIC)
-  seeos_l2_low[(SECURE_UART1 >> 21) & 0x1FF] =
-      SECURE_UART1 | PROT_DEVICE_NGNRE | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_PXN |
-      PTE_TYPE_BLOCK;
+  see_map_region(seeos_l1_table, GICD_BASE, GICD_BASE, 0x10000,
+                 PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_PXN);
 
-  // map GIC V3
-  seeos_l2_low[(GICD_BASE >> 21) & 0x1FF] = GICD_BASE | PROT_DEVICE |
-                                            AP_EL0_NO_ELX_RW | PTE_UXN |
-                                            PTE_PXN | PTE_TYPE_BLOCK;
-
-  seeos_l2_low[(GICR_BASE >> 21) & 0x1FF] = GICR_BASE | PROT_DEVICE |
-                                            AP_EL0_NO_ELX_RW | PTE_UXN |
-                                            PTE_PXN | PTE_TYPE_BLOCK;
+  see_map_region(seeos_l1_table, GICR_BASE, GICR_BASE, 0x80000,
+                 PROT_DEVICE | AP_EL0_NO_ELX_RW | PTE_UXN | PTE_PXN);
 }
 
 void seeos_enable_mmu() {
