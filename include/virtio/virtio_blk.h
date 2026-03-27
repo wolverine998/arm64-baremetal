@@ -55,6 +55,10 @@
 #define VIRTIO_UNKNOWN_DEVICE 2
 #define VIRTIO_READ_ERROR 3
 
+// Virtio MMIO.0 SPI interrupt ID and priority
+#define VIRTIO_INTERRUPT_MMIO_0 48
+#define VIRTIO_INTERRUPT_MMIO_0_PRIO 0x50
+
 struct virtq_desc {
   uint64_t addr;
   uint32_t len;
