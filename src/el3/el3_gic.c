@@ -14,12 +14,10 @@ void gic_init_global() {
   while (read_gicd(GICD_CTLR) & GICD_CTLR_RWP)
     ;
 
-  // unlock interupts for kernel
-  for (int i = SPI_RESERVED_1; i <= SPI_RESERVED_3; i++) {
-    gic_el3_conf_spi(i, 0xF0, 1);
+  // unlock SPI range 32-128 for Kernel
+  for (int i = 32; i <= 128; i++) {
+    gic_el3_conf_spi(i, 0xA0, 1);
   }
-
-  gic_el3_conf_spi(VIRTIO_INTERRUPT_MMIO_0, VIRTIO_INTERRUPT_MMIO_0_PRIO, 1);
 }
 
 void gic_init_core(int core_id) {

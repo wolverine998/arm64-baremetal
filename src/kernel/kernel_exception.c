@@ -1,3 +1,4 @@
+#include "../../include/driver.h"
 #include "../../include/generic_timer.h"
 #include "../../include/gic-v3.h"
 #include "../../include/kernel_sched.h"
@@ -6,7 +7,6 @@
 #include "../../include/syscall.h"
 #include "../../include/trap_frame.h"
 #include "../../include/uart.h"
-#include "../../include/virtio/virtio_blk.h"
 #include <stdint.h>
 
 void kernel_panic(trap_frame_t *frame, const char *msg) {
@@ -74,10 +74,8 @@ trap_frame_t *kernel_irq(trap_frame_t *frame) {
       timer_enable_interrupts();
     } else if (interupt_id == SCHEDULER_GC) {
       reaper_service();
-    } else if (interupt_id == VIRTIO_INTERRUPT_MMIO_0) {
-      kernel_printf("Virtio MMIO 0 interrupt asserted\n");
-      uint32_t irq_status = virtio_read32(VIRTIO_REG_INTERRUPT_STATUS);
-      virtio_write32(VIRTIO_REG_INTERRUPT_ACK, irq_status);
+    } else if (interupt_id >= 32 && interupt_id < 1020) {
+      dispatch_interrupt(interupt_id);
     } else {
       kernel_printf("Interrupt ID %d signaled on CPU %d\n", interupt_id,
                     core_id);

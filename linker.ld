@@ -50,14 +50,14 @@ SECTIONS
     /* 3. KERNEL CODE: Uses AT() to stay at the correct Physical spot */
     .kernel_text : AT(ADDR(.kernel_text) - KERNEL_VIRT_BASE) {
         _kernel_start = .;
-        *kernel_*(.text.kernel .text .text.*)
-        *kernel_*(.rodata .rodata.*)
+        *src/kernel*(.text.kernel .text .text.*)
+        *src/kernel*(.rodata .rodata.*)
     }
 
     /* 4. KERNEL DATA: The 64KB gap is handled here automatically */
     .kernel_data : AT(ADDR(.kernel_data) - KERNEL_VIRT_BASE) {
         . = ALIGN(65536);
-        *kernel_*(.data .data.* .bss .bss.*)
+        *src/kernel*(.data .data.* .bss .bss.*)
         *(COMMON)
         _kernel_end = .;
     }

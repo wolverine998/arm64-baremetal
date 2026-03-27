@@ -149,7 +149,7 @@ static inline void gic_el3_conf_spi(uint32_t int_id, uint8_t priority,
     igroup &= ~(1 << bit);
 
   write_gicd(GICD_IGROUPR(index), igroup);
-  write_gicd(GICD_ISENABLER(index), (1 << bit));
+  // write_gicd(GICD_ISENABLER(index), (1 << bit));
   write_gicd_8(GICD_IPRIORITYR(int_id), priority);
 }
 
