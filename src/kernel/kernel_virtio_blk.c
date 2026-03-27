@@ -1,3 +1,4 @@
+#include "../../include/kernel_gicv3.h"
 #include "../../include/kernel_mmu.h"
 #include "../../include/stdlib.h"
 #include "../../include/uart.h"
@@ -72,6 +73,10 @@ int virtio_blk_init(virtio_blk_dev_t *dev) {
   dev->last_used_idx = 0;
   dev->config = (struct virtio_blk_config *)PA_TO_VA(VIRTIO_BLK_ADDRESS +
                                                      VIRTIO_REG_DEVICE_CONFIG);
+  // finally enable the interrupt
+  gic_conf_spi(VIRTIO_INTERRUPT_MMIO_0, VIRTIO_INTERRUPT_MMIO_0_PRIO, 1);
+  gic_route_spi(VIRTIO_INTERRUPT_MMIO_0, 0);
+
   return VIRTIO_OK;
 }
 

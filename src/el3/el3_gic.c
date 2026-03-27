@@ -1,5 +1,6 @@
 #include "../../include/gic-v3.h"
 #include "../../include/irq.h"
+#include "../../include/virtio/virtio_blk.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -17,6 +18,8 @@ void gic_init_global() {
   for (int i = SPI_RESERVED_1; i <= SPI_RESERVED_3; i++) {
     gic_el3_conf_spi(i, 0xF0, 1);
   }
+
+  gic_el3_conf_spi(VIRTIO_INTERRUPT_MMIO_0, VIRTIO_INTERRUPT_MMIO_0_PRIO, 1);
 }
 
 void gic_init_core(int core_id) {
