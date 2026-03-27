@@ -25,6 +25,8 @@ Application OS(**EL1**).
 - [x] GIC Interrupt Translation Service
 - [x] Minimal standard library
 - [x] Virtio-blk-device driver
+- [x] Device driver subsystem
+
 
 
 ***More features comming soon!*** 
