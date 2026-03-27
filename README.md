@@ -24,5 +24,7 @@ Application OS(**EL1**).
 - [x] Queue scheduler
 - [x] GIC Interrupt Translation Service
 - [x] Minimal standard library
+- [x] Virtio-blk-device driver
+
 
 ***More features comming soon!*** 
