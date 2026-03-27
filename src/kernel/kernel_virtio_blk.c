@@ -1,10 +1,19 @@
-#include "../../include/kernel_gicv3.h"
+#include "../../include/driver.h"
 #include "../../include/kernel_mmu.h"
 #include "../../include/stdlib.h"
 #include "../../include/uart.h"
 #include "../../include/virtio/virtio_blk.h"
 
 static struct virtio_virtq blk_ring;
+
+void virtio_blk_handler(void *device) {
+  virtio_blk_dev_t *dev = (virtio_blk_dev_t *)device;
+
+  uint32_t status = virtio_read32(VIRTIO_REG_INTERRUPT_STATUS);
+  virtio_write32(VIRTIO_REG_INTERRUPT_ACK, status);
+
+  kernel_printf("[VIRTIO-BLK] Interrupt handler invoked\n");
+}
 
 void virtio_blk_get_info(virtio_blk_dev_t *dev) {
   // select the index 0 of host features 0-31
@@ -73,9 +82,9 @@ int virtio_blk_init(virtio_blk_dev_t *dev) {
   dev->last_used_idx = 0;
   dev->config = (struct virtio_blk_config *)PA_TO_VA(VIRTIO_BLK_ADDRESS +
                                                      VIRTIO_REG_DEVICE_CONFIG);
-  // finally enable the interrupt
-  gic_conf_spi(VIRTIO_INTERRUPT_MMIO_0, VIRTIO_INTERRUPT_MMIO_0_PRIO, 1);
-  gic_route_spi(VIRTIO_INTERRUPT_MMIO_0, 0);
+
+  register_driver(VIRTIO_INTERRUPT_MMIO_0, virtio_blk_handler, dev,
+                  "virtio-blk");
 
   return VIRTIO_OK;
 }
